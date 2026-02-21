@@ -1,0 +1,1860 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LetterDuel - Ultimate</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap" rel="stylesheet">
+    <script src="words.js"></script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, doc, onSnapshot, updateDoc, getDoc, query, orderBy, limit, getDocs, where, deleteDoc, setDoc, runTransaction } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyA38q4GgmYL85ukq7c-h7zI6xhHAtOPS1k",
+            authDomain: "letterduel.firebaseapp.com",
+            projectId: "letterduel",
+            storageBucket: "letterduel.firebasestorage.app",
+            messagingSenderId: "1062220635488",
+            appId: "1:1062220635488:web:53e8a573fd36043b759205"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        window.db = getFirestore(app);
+        window.auth = getAuth(app);
+        
+        window.firebaseFuncs = { collection, addDoc, doc, onSnapshot, updateDoc, getDoc, query, orderBy, limit, getDocs, where, deleteDoc, setDoc, runTransaction };
+        
+        // Globale variabele om de beurt bij te houden
+        window.activeTurnPlayerId = null;
+
+        signInAnonymously(window.auth).then((u) => {
+            console.log("Ingelogd als:", u.user.uid);
+            window.currentUser = u.user;
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const pendingGameId = urlParams.get('game');
+
+            if (pendingGameId) {
+                window.pendingInviteId = pendingGameId;
+                if (typeof window.checkAndJoin === 'function') {
+                    window.checkAndJoin();
+                }
+            }
+        }).catch(e => console.error(e));
+    </script>
+
+    <style>
+        :root {
+            --bg-dark: #1a1a2e;
+            --bg-gradient: linear-gradient(135deg, #16213e 0%, #0f3460 100%);
+            --text-main: #ecf0f1;
+            --text-muted: #95a5a6;
+            --primary: #0f3460;
+            --secondary: #00d2d3;
+            --accent: #ff4757;
+            --surface: #1e272e;
+            --surface-light: #2c3e50;
+            --shadow: 0 8px 20px rgba(0,0,0,0.4);
+            --easy: #2ecc71;
+            --medium: #f1c40f;
+            --hard: #e74c3c; 
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            text-align: center;
+            margin: 0; padding: 10px;
+            touch-action: manipulation;
+            display: flex; flex-direction: column; align-items: center;
+            min-height: 100vh;
+        }
+
+        /* BRANDING */
+        .brand-header {
+            display: flex; align-items: center; justify-content: center; gap: 15px;
+            margin-top: 10px; margin-bottom: 15px; padding: 10px 25px;
+            background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px; backdrop-filter: blur(5px);
+        }
+        .logo-svg { width: 40px; height: 40px; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5)); }
+        .title-block { text-align: left; display: flex; flex-direction: column; justify-content: center; }
+        h1 { margin: 0; font-size: 1.6rem; line-height: 1; color: var(--text-main); letter-spacing: 1px; text-transform: uppercase; font-weight: 900; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        .slogan { font-size: 0.75rem; color: var(--secondary); font-weight: 500; margin-top: 4px; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* SCREENS */
+        #start-screen { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-gradient); z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+        .menu-card { background: var(--surface); padding: 40px 30px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); box-shadow: var(--shadow); width: 100%; max-width: 350px; display: flex; flex-direction: column; gap: 20px; animation: popIn 0.4s ease-out; position: relative; }
+        @keyframes popIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .big-logo { width: 80px; height: 80px; margin: 0 auto 10px auto; display: block; }
+        .menu-title { font-size: 1.8rem; font-weight: 900; color: var(--text-main); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;}
+        .mode-btn { padding: 18px; font-size: 1rem; font-weight: 700; color: white; border: none; border-radius: 6px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 0 rgba(0,0,0,0.3); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .mode-btn:active { transform: translateY(4px); box-shadow: none; }
+        .mode-btn span { font-size: 1.2rem; }
+        .btn-computer { background-color: #3498db; }
+        .btn-online { background-color: var(--secondary); color: #000; }
+        .btn-highscore { background-color: #9b59b6; color: #fff; box-shadow: 0 4px 0 #8e44ad; }
+        
+        .btn-easy { background-color: var(--easy); box-shadow: 0 4px 0 #218c53;}
+        .btn-medium { background-color: var(--medium); box-shadow: 0 4px 0 #c29d0b; color: #333;}
+        .btn-hard { background-color: var(--hard); box-shadow: 0 4px 0 #b33939;} 
+        .btn-back { background-color: #353b48; color: #fff; box-shadow: 0 4px 0 #2f3640; }
+        
+        /* Buttons under grid */
+        .btn-scramble { background-color: #e67e22; color: #fff; box-shadow: 0 4px 0 #d35400; font-size: 0.8rem; padding: 10px 15px;}
+        .btn-check-small { background-color: #576574; color: #fff; box-shadow: 0 4px 0 #2f3640; font-size: 0.8rem; padding: 10px 15px; }
+
+        #difficulty-select, #lobby-ui { display: none; flex-direction: column; gap: 15px; width: 100%; }
+        
+        #lobby-start-buttons { 
+            width: 100%; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 15px; 
+        }
+        #main-menu { display: flex; flex-direction: column; gap: 15px; width: 100%; }
+        
+        /* INFO BUTTON & RULES */
+        .info-btn {
+            position: absolute; top: 15px; right: 15px;
+            padding: 8px 15px;
+            width: auto; height: auto;
+            border: 1px solid rgba(255,255,255,0.2); 
+            border-radius: 20px;
+            background: rgba(0,0,0,0.4);
+            color: var(--text-muted); 
+            font-weight: bold; font-size: 0.8rem;
+            text-transform: uppercase;
+            display: flex; align-items: center; gap: 6px;
+            cursor: pointer; transition: all 0.2s; font-family: 'Roboto', sans-serif;
+            z-index: 60;
+        }
+        .info-btn:hover { border-color: var(--secondary); color: white; background: var(--surface); }
+
+        .rules-list li { margin-bottom: 8px; color: #ccc; font-size: 0.9rem; }
+        .rules-list strong { color: white; }
+        
+        /* PROFILE EDIT */
+        #profile-display {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            color: #888; font-size: 0.9rem; cursor: pointer; margin-bottom: 20px;
+            padding: 5px 10px; border-radius: 20px; transition: background 0.2s;
+        }
+        #profile-display:hover { background: rgba(255,255,255,0.05); color: white; }
+        #profile-name { font-weight: bold; color: var(--text-main); }
+        #profile-icon { font-size: 0.8rem; opacity: 0.5; }
+
+        /* GAME UI */
+        .container { width: 100%; max-width: 450px; position: relative; padding-bottom: 160px; }
+        #game-status-bar { background: var(--surface); padding: 15px 20px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); margin-bottom: 15px; width: 90%; max-width: 400px; border: 1px solid rgba(255,255,255,0.05); border-left: 4px solid var(--secondary); }
+        
+        #turn-instruction { 
+            font-size: 1rem; font-weight: 700; color: var(--text-muted); 
+            text-transform: uppercase; display: block; margin-bottom: 5px; 
+            white-space: normal; line-height: 1.4;
+        }
+        
+        #pending-letter-display { font-size: 2.2rem; font-weight: 900; color: var(--text-main); height: 40px; text-shadow: 0 0 10px rgba(255,255,255,0.2); }
+        
+        #win-chance-container { width: 100%; max-width: 450px; margin-bottom: 20px; display: none; padding: 0 10px; box-sizing: border-box; }
+        canvas { border-radius: 4px; border: 1px solid #333; box-shadow: 0 2px 5px rgba(0,0,0,0.5); background: #222; width: 100%; height: 40px; }
+
+        .integrated-game-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; width: 100%; margin-bottom: 25px; padding: 0 10px; box-sizing: border-box; }
+        .cell { background-color: var(--surface-light); display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 900; text-transform: uppercase; color: var(--text-main); cursor: pointer; border-radius: 4px; box-shadow: 0 3px 0 #182026; border: 1px solid rgba(255,255,255,0.05); transition: all 0.1s; aspect-ratio: 1/1; }
+        .cell:active { transform: translateY(3px); box-shadow: none; }
+        .cell.filled { background: #dfe6e9; color: #2d3436; cursor: default; transform: none; box-shadow: 0 2px 0 #b2bec3; border: none; }
+        .highlight-empty .cell:not(.filled) { background-color: rgba(0, 210, 211, 0.1); border: 1px dashed var(--secondary); box-shadow: none; }
+
+        /* CONTROLS */
+        #virtual-keyboard { position: fixed; bottom: 0; left: 0; right: 0; background: #151a21; padding: 15px 5px 25px 5px; display: none; flex-direction: column; gap: 6px; z-index: 40; border-top: 1px solid #333; box-shadow: 0 -5px 20px rgba(0,0,0,0.5); }
+        .kb-row { display: flex; justify-content: center; gap: 4px; }
+        .kb-key { background: #34495e; border: none; border-radius: 4px; font-weight: 700; color: #ecf0f1; font-size: 1.1rem; padding: 14px 0; width: 8.8%; cursor: pointer; box-shadow: 0 3px 0 #2c3e50; font-family: 'Roboto', sans-serif; }
+        .kb-key:active { transform: translateY(3px); box-shadow: none; background: #2c3e50; }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.9); z-index: 100; backdrop-filter: blur(5px); align-items: center; justify-content: center; overflow-y: auto; }
+        .modal-content { background: var(--surface); padding: 30px 20px; border-radius: 8px; width: 90%; max-width: 500px; text-align: center; margin: 20px; position: relative; border: 1px solid #444; box-shadow: 0 20px 50px rgba(0,0,0,0.5); color: var(--text-main); }
+        .close-modal { position: absolute; top: 15px; right: 20px; font-size: 1.8rem; cursor: pointer; color: #666; transition: color 0.2s; }
+        .close-modal:hover { color: var(--secondary); }
+        
+        button.action-btn { padding: 12px 25px; background: var(--secondary); color: #000; border: none; border-radius: 4px; cursor: pointer; font-weight: 900; font-size: 1rem; text-transform: uppercase; box-shadow: 0 4px 0 #00aaaa; transition: transform 0.2s; }
+        button.action-btn:active { transform: translateY(4px); box-shadow: none; }
+        
+        button.debug-btn { padding: 8px 15px; background: #333; color: #777; border: 1px solid #444; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-top: 10px; text-transform: uppercase; font-weight: bold; }
+        button.debug-btn:hover { color: white; border-color: white; }
+        
+        .control-row { display:flex; justify-content:center; gap:10px; margin-top:10px; flex-wrap: wrap;}
+
+        /* RESULTS */
+        .comparison-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 30px; margin-bottom: 20px; margin-top: 10px; }
+        .grid-summary-wrapper { display: flex; flex-direction: column; align-items: center; }
+        .winner-text { font-size: 2rem; font-weight: 900; color: var(--secondary); margin-bottom: 5px; text-shadow: 0 0 10px rgba(0, 210, 211, 0.4); text-transform: uppercase; }
+        .score-big { font-size: 1.2rem; font-weight: 800; color: var(--text-main); margin-bottom: 5px;}
+        
+        .result-grid-layout { display: grid; grid-template-columns: 180px 30px; grid-template-rows: 180px 30px; gap: 5px; }
+        .mini-grid-layer { grid-column: 1; grid-row: 1; display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; width: 100%; height: 100%; position: relative; }
+        .vertical-scores { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; justify-content: space-between; height: 100%; }
+        .horizontal-scores { grid-column: 1; grid-row: 2; display: flex; justify-content: space-between; width: 100%; }
+        .mini-cell { background: #333; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: bold; color: #ccc; border-radius: 2px; }
+        .mini-score-cell { background: #222; color: var(--secondary); font-weight: 900; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; border: 1px solid #333; border-radius: 2px; width: 100%; height: 100%; }
+        .word-outline { position: absolute; box-sizing: border-box; border-radius: 999px; pointer-events: none; z-index: 10; }
+        .outline-row { border: 2px solid var(--easy); box-shadow: 0 0 8px var(--easy); }
+        .outline-col { border: 2px solid var(--secondary); box-shadow: 0 0 8px var(--secondary); }
+
+        #checker-input { font-size: 1.5rem; padding: 15px; background: #111; border: 2px solid #444; border-radius: 4px; width: 80%; text-transform: uppercase; text-align: center; margin-bottom: 15px; font-weight: 800; color: #fff; outline: none; }
+        .valid-word { color: #000; font-weight: 900; background: var(--easy); padding: 5px 15px; border-radius: 4px; }
+        .invalid-word { color: #fff; font-weight: 900; background: var(--hard); padding: 5px 15px; border-radius: 4px; }
+        
+        /* FOOTER */
+        .jvdv-footer { width: 100%; text-align: center; padding: 20px 0 10px 0; font-size: 0.75rem; color: rgba(255, 255, 255, 0.3); font-family: sans-serif; margin-top: auto; pointer-events: none; }
+
+        /* FLASH NOTIFICATION */
+        .flash-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5); 
+            z-index: 200;
+            display: none; align-items: center; justify-content: center;
+            backdrop-filter: blur(2px); 
+        }
+        
+        .flash-card {
+            background: var(--surface);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-left: 4px solid var(--secondary);
+            padding: 25px 40px;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            text-align: center;
+            animation: slideUpFade 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            max-width: 80%;
+        }
+
+        .flash-title { 
+            font-size: 1.1rem; 
+            color: var(--text-muted); 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            margin-bottom: 8px; 
+            letter-spacing: 1px;
+        }
+        
+        .flash-content { 
+            font-size: 1.6rem; 
+            color: white; 
+            font-weight: 900; 
+            text-transform: uppercase; 
+            line-height: 1.3;
+        }
+
+        /* HIGHSCORES CSS */
+        .tab-bar { display: flex; gap: 5px; margin-bottom: 15px; justify-content: center; }
+        .tab-btn { background: rgba(255,255,255,0.1); border: 1px solid #444; color: #888; flex: 1; padding: 8px; cursor: pointer; border-radius: 4px; font-weight: bold; transition: all 0.2s;}
+        .tab-btn.active { background: var(--secondary); color: #000; border-color: var(--secondary); }
+        
+        .scope-bar { display: flex; gap: 10px; margin-bottom: 15px; justify-content: center; padding: 0 10px;}
+        .scope-btn { 
+            flex: 1; padding: 12px; background: transparent; border: 2px solid #444; 
+            color: #888; font-weight: 900; font-size: 0.9rem; text-transform: uppercase;
+            cursor: pointer; border-radius: 8px; transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .scope-btn.active { border-color: var(--secondary); color: white; background: rgba(0, 210, 211, 0.1); box-shadow: 0 0 10px rgba(0, 210, 211, 0.2); }
+        
+        .hs-list-container { max-height: 300px; overflow-y: auto; text-align: left; }
+        .hs-row { display: flex; justify-content: space-between; padding: 10px; background: rgba(255,255,255,0.05); margin-bottom: 5px; border-radius: 4px; align-items: center; border-left: 3px solid transparent;}
+        .hs-row:nth-child(1) { border-left-color: #f1c40f; background: rgba(241, 196, 15, 0.1); }
+        .hs-row:nth-child(2) { border-left-color: #bdc3c7; }
+        .hs-row:nth-child(3) { border-left-color: #cd6133; }
+        .hs-rank { font-weight: 900; color: var(--secondary); width: 25px; text-align:center;}
+        .hs-name { flex: 1; text-align: left; font-weight: bold; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 10px;}
+        .hs-score { font-weight: 900; color: var(--easy); margin-right: 15px; width: 40px; text-align: right;}
+        .hs-date { font-size: 0.7rem; color: #666; margin-right: 10px; width: 60px; text-align:right;}
+        .eye-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 0; opacity: 0.7; transition: opacity 0.2s;}
+        .eye-btn:hover { opacity: 1; transform: scale(1.2); }
+
+        @keyframes slideUpFade { 
+            from { transform: translateY(20px); opacity: 0; } 
+            to { transform: translateY(0); opacity: 1; } 
+        }
+    </style>
+</head>
+<body>
+
+<div id="start-screen">
+    <div class="menu-card">
+        <div class="info-btn" onclick="openRules()" title="Bekijk Spelregels">
+            <span>ℹ️</span> <span>Spelregels</span>
+        </div>
+
+        <svg class="logo-svg big-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <rect x="5" y="5" width="42" height="42" rx="4" fill="#3498db" />
+            <text x="26" y="38" font-family="Roboto, sans-serif" font-weight="900" font-size="30" fill="white" text-anchor="middle">L</text>
+            <rect x="53" y="5" width="42" height="42" rx="4" fill="#ff4757" />
+            <text x="74" y="38" font-family="Roboto, sans-serif" font-weight="900" font-size="30" fill="white" text-anchor="middle">D</text>
+            <rect x="5" y="53" width="42" height="42" rx="4" fill="#ff4757" />
+            <rect x="53" y="53" width="42" height="42" rx="4" fill="#3498db" />
+        </svg>
+
+        <div style="text-align: center; margin-bottom: 20px;">
+            <div class="menu-title">LetterDuel</div>
+            <div class="slogan">Slimste zet, hoogste woord</div>
+        </div>
+
+        <div id="profile-display" onclick="openNameChange()">
+            <span>👤</span> <span id="profile-name">Gast</span> <span id="profile-icon">✏️</span>
+        </div>
+
+        <div id="main-menu">
+            <button class="mode-btn btn-computer" onclick="showDifficultySelect()"><span>🤖</span> Tegen Computer</button>
+            <button class="mode-btn btn-online" onclick="showOnlineLobby()"><span>⚔️</span> Online Duel</button>
+            <button class="mode-btn btn-highscore" onclick="openHighscores()"><span>🏆</span> Highscores</button>
+        </div>
+
+        <div id="difficulty-select">
+            <div style="text-align:center; font-weight:bold; color:var(--text-muted); margin-bottom:5px;">KIES NIVEAU</div>
+            
+            <button class="mode-btn btn-easy" onclick="startSinglePlayer('easy')">Easy</button>
+            <button class="mode-btn btn-medium" onclick="startSinglePlayer('medium')">Medium</button>
+            <button class="mode-btn btn-hard" onclick="startSinglePlayer('hard')">Hard</button>
+            <button class="mode-btn btn-back" onclick="hideDifficultySelect()">Terug</button>
+        </div>
+
+        <div id="lobby-ui">
+            <div style="text-align:center; font-weight:bold; color:var(--text-muted); margin-bottom:5px;">ONLINE DUEL</div>
+            
+      <div id="share-area" style="display:none; text-align:center; animation: popIn 0.3s;">
+    <h3 style="color:white; margin:0 0 10px 0; font-size:1.1rem;">UITDAGING AANGEMAAKT!</h3>
+    <p style="color:#ccc; font-size:0.9rem; margin-bottom:20px;">Deel de link met je tegenstander:</p>
+    
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+        <button onclick="shareViaWhatsapp()" style="background: #25D366; color: white; padding: 15px; border: none; border-radius: 8px; font-weight: bold; font-size: 1rem; width:100%; display: flex; align-items: center; justify-content: center; gap: 10px; cursor:pointer; box-shadow: 0 4px 0 #128c7e; transition: transform 0.1s;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+            Via WhatsApp
+        </button>
+
+        <button onclick="copyGameLink()" style="background: #34495e; color: white; padding: 15px; border: none; border-radius: 8px; font-weight: bold; font-size: 1rem; width:100%; display: flex; align-items: center; justify-content: center; gap: 10px; cursor:pointer; box-shadow: 0 4px 0 #2c3e50; transition: transform 0.1s;">
+            <span style="font-size:1.2rem;">📋</span>
+            Kopieer Link
+        </button>
+    </div>
+    
+    <div style="margin-top:15px; font-size:0.8rem; color:#888;">Of wacht hier tot de ander klikt...</div>
+</div>
+
+<button id="lobby-start-buttons" class="mode-btn btn-online" onclick="prepareOnlineGame()">Start Nieuw Spel</button>
+            
+            <button class="mode-btn btn-back" onclick="hideOnlineLobby()">Terug</button>
+        </div>
+    </div>
+    
+    <div class="jvdv-footer">
+        &copy; <script>document.write(new Date().getFullYear())</script> Joost van de Ven
+    </div>
+</div>
+
+<div class="container">
+    <div class="brand-header">
+        <svg class="logo-svg" style="width:30px; height:30px;" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <rect x="5" y="5" width="42" height="42" rx="4" fill="#3498db" />
+            <rect x="53" y="5" width="42" height="42" rx="4" fill="#ff4757" />
+            <rect x="5" y="53" width="42" height="42" rx="4" fill="#ff4757" />
+            <rect x="53" y="53" width="42" height="42" rx="4" fill="#3498db" />
+        </svg>
+        <div class="title-block">
+            <h1 style="font-size: 1.2rem;">LetterDuel</h1>
+        </div>
+    </div>
+
+    <div id="game-ui" style="display:none;">
+        <div id="game-status-bar">
+            <span id="turn-instruction">Wachten...</span>
+            <div id="pending-letter-display"></div>
+        </div>
+
+        <div id="win-chance-container">
+            <canvas id="win-chance-canvas" width="450" height="40"></canvas>
+        </div>
+
+        <div class="integrated-game-grid" id="my-grid-display"></div>
+        
+        <div class="control-row">
+             <button class="mode-btn btn-scramble" onclick="handleScrambleStart()">🔀 Scramble</button>
+             <button class="mode-btn btn-check-small" onclick="openChecker()">🔍 Check</button>
+               <button id="simulate-btn" class="mode-btn btn-check-small" onclick="toggleSinglePlayerSimulation()">🧪 Simulatie</button>
+             <button class="action-btn" onclick="location.href = window.location.pathname" style="background:#333; color:#aaa; font-size:0.8rem; padding: 10px 20px; box-shadow:none;">Stoppen</button>
+        </div>
+        <div style="text-align:center;">
+               <button id="debug-btn" class="debug-btn" onclick="handleDebugAutofill()" style="display:none;">⚡ DEBUG</button>
+        </div>
+    </div>
+</div>
+
+<div id="virtual-keyboard">
+    <div class="kb-row"><button class="kb-key" onclick="handleKey('Q')">Q</button><button class="kb-key" onclick="handleKey('W')">W</button><button class="kb-key" onclick="handleKey('E')">E</button><button class="kb-key" onclick="handleKey('R')">R</button><button class="kb-key" onclick="handleKey('T')">T</button><button class="kb-key" onclick="handleKey('Y')">Y</button><button class="kb-key" onclick="handleKey('U')">U</button><button class="kb-key" onclick="handleKey('I')">I</button><button class="kb-key" onclick="handleKey('O')">O</button><button class="kb-key" onclick="handleKey('P')">P</button></div>
+    <div class="kb-row"><button class="kb-key" onclick="handleKey('A')">A</button><button class="kb-key" onclick="handleKey('S')">S</button><button class="kb-key" onclick="handleKey('D')">D</button><button class="kb-key" onclick="handleKey('F')">F</button><button class="kb-key" onclick="handleKey('G')">G</button><button class="kb-key" onclick="handleKey('H')">H</button><button class="kb-key" onclick="handleKey('J')">J</button><button class="kb-key" onclick="handleKey('K')">K</button><button class="kb-key" onclick="handleKey('L')">L</button></div>
+    <div class="kb-row"><button class="kb-key" onclick="handleKey('Z')">Z</button><button class="kb-key" onclick="handleKey('X')">X</button><button class="kb-key" onclick="handleKey('C')">C</button><button class="kb-key" onclick="handleKey('V')">V</button><button class="kb-key" onclick="handleKey('B')">B</button><button class="kb-key" onclick="handleKey('N')">N</button><button class="kb-key" onclick="handleKey('M')">M</button></div>
+</div>
+
+<div id="flash-overlay" class="flash-overlay">
+    <div class="flash-card">
+        <div class="flash-title" id="flash-title"></div>
+        <div class="flash-content" id="flash-content"></div>
+    </div>
+</div>
+
+<div id="result-modal" class="modal">
+    <div class="modal-content">
+        <div id="winner-display" class="winner-text"></div>
+        
+        <div class="comparison-container">
+            <div class="grid-summary-wrapper">
+                <div class="score-big">Jij: <span id="my-final-score">0</span></div>
+                <div class="result-grid-layout">
+                    <div class="mini-grid-layer" id="my-mini-grid"></div>
+                    <div class="vertical-scores" id="my-row-scores"></div>
+                    <div class="horizontal-scores" id="my-col-scores"></div>
+                </div>
+            </div>
+            <div class="grid-summary-wrapper">
+                <div class="score-big"><span id="opponent-name-result">Opponent</span>: <span id="opp-final-score">0</span></div>
+                <div class="result-grid-layout">
+                    <div class="mini-grid-layer" id="opp-mini-grid"></div>
+                    <div class="vertical-scores" id="opp-row-scores"></div>
+                    <div class="horizontal-scores" id="opp-col-scores"></div>
+                </div>
+            </div>
+        </div>
+        <button class="action-btn" onclick="location.href = window.location.pathname">TERUG NAAR MENU</button>
+    </div>
+</div>
+
+<div id="highscores-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal" onclick="closeHighscores()">&times;</span>
+        <h2 style="color:var(--secondary); margin-top:0;">HIGHSCORES</h2>
+        
+        <div class="scope-bar">
+            <button class="scope-btn active" onclick="switchHighscoreScope('global', this)">🌎 Iedereen</button>
+            <button class="scope-btn" onclick="switchHighscoreScope('personal', this)">👤 Mijn Scores</button>
+        </div>
+        
+        <div class="tab-bar">
+            <button class="tab-btn active" onclick="switchHighscoreTab('today', this)">Vandaag</button>
+            <button class="tab-btn" onclick="switchHighscoreTab('week', this)">Deze Week</button>
+            <button class="tab-btn" onclick="switchHighscoreTab('all', this)">Alltime</button>
+        </div>
+        
+        <div id="hs-list" class="hs-list-container">
+            <div style="color:#666; padding:20px;">Laden...</div>
+        </div>
+        
+        <div style="margin-top:10px; font-size:0.7rem; color:#444; cursor:pointer;" onclick="clearHighscoreCache()">🔄 Verversen</div>
+    </div>
+</div>
+
+<div id="view-grid-modal" class="modal" style="z-index: 150;">
+    <div class="modal-content" style="max-width: 300px; padding: 20px;">
+        <span class="close-modal" onclick="closeViewGrid()">&times;</span>
+        <div style="margin-bottom:10px; font-weight:bold; color:var(--secondary);" id="view-grid-title"></div>
+        
+        <div class="result-grid-layout" style="margin: 0 auto;">
+            <div class="mini-grid-layer" id="view-mini-grid"></div>
+            <div class="vertical-scores" id="view-row-scores"></div>
+            <div class="horizontal-scores" id="view-col-scores"></div>
+        </div>
+    </div>
+</div>
+
+<div id="username-modal" class="modal" style="z-index: 200;">
+    <div class="modal-content">
+        <h2 style="color:var(--secondary); margin-top:0;">WIE BEN JIJ?</h2>
+        <p style="color:#ccc; font-size:0.9rem;">Kies een naam voor de Highscores</p>
+        <input type="text" id="username-input" placeholder="Bijv. LetterKoning" maxlength="12" style="font-size: 1.2rem; padding: 10px; width: 80%; text-align: center; background: #222; border: 1px solid #444; color: white; border-radius: 4px;">
+        <br><br>
+        <button class="action-btn" onclick="saveUsername()">OPSLAAN & DOORGAAN</button>
+    </div>
+</div>
+
+<div id="checker-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal" onclick="closeChecker()">&times;</span>
+        <h2 class="menu-title" style="font-size:1.3rem;">Woord Checken</h2>
+        <input type="text" id="checker-input" placeholder="TYP HIER..." maxlength="6" onkeyup="if(event.key === 'Enter') checkInputWord()">
+        <br>
+        <button class="action-btn" onclick="checkInputWord()">CHECK</button>
+        <div id="checker-result"></div>
+    </div>
+</div>
+
+<div id="rules-modal" class="modal">
+    <div class="modal-content" style="text-align:left;">
+        <span class="close-modal" onclick="closeRules()">&times;</span>
+        <h2 style="color:var(--secondary); margin-top:0;">SPELREGELS</h2>
+        
+        <p><strong>De Basis:</strong><br>
+        Jullie hebben allebei een bord van 5x5. Kies en plaats om de beurt een letter. Wie maakt daarmee de meeste woorden horizontaal en verticaal?</p>
+
+        <ul style="padding-left:20px; line-height:1.6;" class="rules-list">
+            <li><strong>Start:</strong> Het spel begint met 2 random letters.</li>
+            <li><strong>Punten:</strong><br>
+                • 3 letters = <span style="color:var(--easy)">5 pnt</span><br>
+                • 4 letters = <span style="color:var(--medium)">10 pnt</span><br>
+                • 5 letters = <span style="color:var(--hard)">15 pnt</span>
+            </li>
+            <li><strong>De Finale:</strong> Sta je achter bij de laatste beurt? Dan mag <em>jij</em> de beslissende laatste letter kiezen!</li>
+        </ul>
+        
+        <button class="action-btn" onclick="closeRules()" style="width:100%; margin-top:10px;">BEGREPEN</button>
+    </div>
+</div>
+
+<script>
+// --- WOORDENLIJST LOADING ---
+let wordSet = new Set();
+const FALLBACK_LIST = ["APPEL", "PEREN", "TAFEL", "STOEL", "WATER", "LATER", "BETER", "VUREN", "GROEN", "DOPEN", "LOPEN", "KOPEN", "HOPEN", "KAT", "HOND", "VIS", "BOOM", "ROOS", "KAAS", "BOOT", "WIND", "LAND", "ZAND", "GOUD", "HOUT"];
+
+if (typeof RAW_WORD_LIST !== 'undefined') {
+    console.log("Lokale words.js gevonden!");
+    wordSet = new Set(RAW_WORD_LIST);
+} else {
+    console.warn("Geen words.js gevonden, gebruik fallback.");
+    wordSet = new Set(FALLBACK_LIST);
+}
+
+let wordsByLength = { 3: [], 4: [], 5: [] }; 
+if(wordSet.size > 0) {
+    const arr = Array.from(wordSet);
+    wordsByLength[5] = arr.filter(w => w.length === 5);
+    wordsByLength[4] = arr.filter(w => w.length === 4);
+    wordsByLength[3] = arr.filter(w => w.length === 3);
+}
+
+const WEIGHTED_LETTERS = [
+    { chars: "AEION", weight: 35 }, { chars: "DRSTU", weight: 30 },
+    { chars: "BGHJK", weight: 20 }, { chars: "LMPFH", weight: 10 }, { chars: "JVXYZQ", weight: 5 }
+];
+
+// --- STATE ---
+let currentGameId = null;
+let myRoleId = null;
+let isSinglePlayer = false;
+let aiDifficulty = 'easy';
+let unsubscribeGame = null;
+let opponentName = "Computer";
+let lastStatus = "init"; 
+
+let myGrid = Array(25).fill("");
+let opponentGrid = Array(25).fill("");
+let pendingLetter = null;
+let isMyPickTurn = false;
+let activeCellIndex = null;
+let finalTurnProcessed = false; 
+let finaleShown = false; 
+let isAiProcessing = false; 
+let isJoiningOnlineGame = false;
+let isSimulationRunning = false;
+let simulationIntervalId = null;
+let simulationAwaitingAiPick = false;
+const isDebugMode = ['localhost', '127.0.0.1'].includes(window.location.hostname) || new URLSearchParams(window.location.search).get('debug') === '1';
+
+// Username Handling
+let myUsername = localStorage.getItem('ld_username') || null;
+
+// DOM
+const gridDisplay = document.getElementById('my-grid-display');
+const instructionText = document.getElementById('turn-instruction');
+const letterDisplay = document.getElementById('pending-letter-display');
+const gameUi = document.getElementById('game-ui');
+const keyboard = document.getElementById('virtual-keyboard');
+const winChanceContainer = document.getElementById('win-chance-container');
+
+window.onload = () => {
+    createGridUI();
+    updateProfileDisplay(); 
+    const debugBtn = document.getElementById('debug-btn');
+    if (debugBtn) debugBtn.style.display = isDebugMode ? 'inline-block' : 'none';
+    updateSimulationButton();
+    if (window.pendingInviteId) {
+        window.checkAndJoin();
+    }
+};
+
+window.checkAndJoin = function() {
+    if (window.currentUser && window.pendingInviteId) {
+        console.log("Check passed: joining game", window.pendingInviteId);
+        const gameId = window.pendingInviteId;
+        window.pendingInviteId = null; 
+        handleGuestEntry(gameId);
+    }
+}
+
+// --- USERNAME FLOW ---
+function updateProfileDisplay() {
+    const nameEl = document.getElementById('profile-name');
+    if (myUsername) nameEl.innerText = myUsername;
+    else nameEl.innerText = "Gast";
+}
+
+function openNameChange() {
+    const input = document.getElementById('username-input');
+    if (myUsername) input.value = myUsername;
+    else input.value = "";
+    document.getElementById('username-modal').style.display = 'flex';
+}
+
+function ensureUsername(callback) {
+    if (myUsername) {
+        callback(); 
+    } else {
+        openNameChange();
+        window.afterUsernameSaved = callback;
+    }
+}
+
+function saveUsername() {
+    const input = document.getElementById('username-input').value.trim();
+    if (input.length < 2) { alert("Naam is te kort!"); return; }
+    
+    myUsername = input;
+    localStorage.setItem('ld_username', input);
+    updateProfileDisplay();
+    
+    document.getElementById('username-modal').style.display = 'none';
+    
+    if (window.afterUsernameSaved) {
+        window.afterUsernameSaved();
+        window.afterUsernameSaved = null;
+    }
+}
+
+// --- RULES & MODALS ---
+function openRules() { document.getElementById('rules-modal').style.display = 'flex'; }
+function closeRules() { document.getElementById('rules-modal').style.display = 'none'; }
+function openChecker() { document.getElementById('checker-modal').style.display = 'flex'; document.getElementById('checker-input').focus(); }
+function closeChecker() { document.getElementById('checker-modal').style.display = 'none'; }
+
+function checkInputWord() {
+    const input = document.getElementById('checker-input').value.trim().toUpperCase();
+    const resDiv = document.getElementById('checker-result');
+    if (!input) return;
+    resDiv.innerHTML = "";
+    const resultBadge = document.createElement('span');
+    if (wordSet.has(input)) {
+        resultBadge.className = 'valid-word';
+        resultBadge.textContent = `✅ "${input}" is GELDIG`;
+    } else {
+        resultBadge.className = 'invalid-word';
+        resultBadge.textContent = `❌ "${input}" is ONGELDIG`;
+    }
+    resDiv.appendChild(resultBadge);
+}
+
+// --- HIGHSCORES LOGIC ---
+function openHighscores() { 
+    document.getElementById('highscores-modal').style.display = 'flex'; 
+    switchHighscoreScope('global', document.querySelector('.scope-btn'));
+}
+function closeHighscores() { document.getElementById('highscores-modal').style.display = 'none'; }
+function closeViewGrid() { document.getElementById('view-grid-modal').style.display = 'none'; }
+
+let hsCurrentScope = 'global'; 
+let hsCurrentTab = 'today';
+let hsCache = { global: null, personal: null }; 
+
+function clearHighscoreCache() {
+    hsCache = { global: null, personal: null };
+    renderHighscores(); 
+}
+
+function switchHighscoreScope(scope, btn) {
+    hsCurrentScope = scope;
+    document.querySelectorAll('.scope-btn').forEach(b => b.classList.remove('active'));
+    if(btn) btn.classList.add('active');
+    else document.querySelectorAll('.scope-btn')[scope === 'global' ? 0 : 1].classList.add('active');
+    switchHighscoreTab(hsCurrentTab, document.querySelector(`.tab-btn:nth-child(${getTabIndex(hsCurrentTab)})`));
+}
+
+function getTabIndex(tab) {
+    if(tab === 'today') return 1;
+    if(tab === 'week') return 2;
+    return 3;
+}
+
+async function switchHighscoreTab(period, btnElement) {
+    hsCurrentTab = period;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    if(btnElement) btnElement.classList.add('active');
+    renderHighscores();
+}
+
+async function fetchScoresForScope(scope) {
+    if (hsCache[scope]) return hsCache[scope];
+    
+    const { collection, query, orderBy, limit, getDocs, where } = window.firebaseFuncs;
+    let q;
+    let needsSorting = false; 
+    
+    if (scope === 'personal') {
+        if (!myUsername) return []; 
+        q = query(
+            collection(window.db, "highscores"), 
+            where("name", "==", myUsername),
+            limit(50)
+        );
+        needsSorting = true;
+    } else {
+        q = query(collection(window.db, "highscores"), orderBy("score", "desc"), limit(50));
+    }
+    
+    try {
+        const snapshot = await getDocs(q);
+        let data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        if (needsSorting) {
+            data.sort((a, b) => b.score - a.score);
+        }
+        hsCache[scope] = data; 
+        return data;
+    } catch(e) {
+        console.error("Fetch error:", e);
+        return null;
+    }
+}
+
+async function renderHighscores() {
+    const listEl = document.getElementById('hs-list');
+    listEl.innerHTML = '<div style="color:#888; padding:20px;">Scores ophalen...</div>';
+    const allScores = await fetchScoresForScope(hsCurrentScope);
+    if (!allScores) { listEl.innerHTML = '<div style="color:var(--hard)">Fout bij laden of index ontbreekt :(</div>'; return; }
+
+    const now = new Date();
+    let filteredList = [];
+    if (hsCurrentTab === 'all') {
+        filteredList = allScores;
+    } else if (hsCurrentTab === 'today') {
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        filteredList = allScores.filter(item => item.timestamp && item.timestamp.seconds * 1000 >= startOfDay);
+    } else if (hsCurrentTab === 'week') {
+        const day = now.getDay() || 7; 
+        if(day !== 1) now.setHours(-24 * (day - 1)); 
+        now.setHours(0,0,0,0);
+        const startOfWeek = now.getTime();
+        filteredList = allScores.filter(item => item.timestamp && item.timestamp.seconds * 1000 >= startOfWeek);
+    }
+    
+    filteredList = filteredList.slice(0, 10);
+    listEl.innerHTML = "";
+    if (filteredList.length === 0) { listEl.innerHTML = `<div style="color:#666; padding:20px;">Nog geen scores ${hsCurrentTab === 'today' ? 'vandaag' : 'in deze periode'}.</div>`; return; }
+
+    filteredList.forEach((scoreData, index) => {
+        const row = document.createElement('div');
+        row.className = 'hs-row';
+        const dateObj = scoreData.timestamp ? new Date(scoreData.timestamp.seconds * 1000) : new Date();
+        const dateStr = `${dateObj.getDate()}/${dateObj.getMonth()+1}`;
+
+        const rankEl = document.createElement('div');
+        rankEl.className = 'hs-rank';
+        rankEl.textContent = `${index + 1}`;
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'hs-name';
+        nameEl.textContent = scoreData.name || 'Onbekend';
+
+        const dateEl = document.createElement('div');
+        dateEl.className = 'hs-date';
+        dateEl.textContent = dateStr;
+
+        const scoreEl = document.createElement('div');
+        scoreEl.className = 'hs-score';
+        scoreEl.textContent = `${scoreData.score ?? 0}`;
+
+        const eyeBtn = document.createElement('button');
+        eyeBtn.className = 'eye-btn';
+        eyeBtn.title = 'Bekijk raster';
+        eyeBtn.textContent = '👁️';
+        eyeBtn.onclick = () => viewHighscoreGrid(scoreData);
+
+        row.appendChild(rankEl);
+        row.appendChild(nameEl);
+        row.appendChild(dateEl);
+        row.appendChild(scoreEl);
+        row.appendChild(eyeBtn);
+        listEl.appendChild(row);
+    });
+}
+
+function viewHighscoreGrid(data) {
+    if (!data.grid) return;
+    document.getElementById('view-grid-title').innerText = `${data.name} (${data.score} pnt)`;
+    renderMiniGridWithOutlines(data.grid, 'view-mini-grid', 'view-row-scores', 'view-col-scores');
+    document.getElementById('view-grid-modal').style.display = 'flex';
+}
+
+// --- FLASH MESSAGES ---
+function showFlashMessage(title, content, duration = 2000) {
+    const overlay = document.getElementById('flash-overlay');
+    document.getElementById('flash-title').innerText = title;
+    document.getElementById('flash-content').textContent = content;
+    overlay.style.display = 'flex';
+    setTimeout(() => { overlay.style.display = 'none'; }, duration);
+}
+
+// --- MENU FUNCTIONS ---
+function showDifficultySelect() { document.getElementById('main-menu').style.display='none'; document.getElementById('difficulty-select').style.display='flex'; }
+function hideDifficultySelect() { document.getElementById('difficulty-select').style.display='none'; document.getElementById('main-menu').style.display='flex'; }
+
+// --- ONLINE HOST FLOW ---
+function showOnlineLobby() {
+    document.getElementById('main-menu').style.display = 'none';
+    document.getElementById('lobby-ui').style.display = 'flex';
+    document.getElementById('lobby-start-buttons').style.display = 'block';
+    document.getElementById('share-area').style.display = 'none';
+}
+function hideOnlineLobby() {
+    document.getElementById('lobby-ui').style.display = 'none';
+    document.getElementById('main-menu').style.display = 'flex';
+}
+
+function prepareOnlineGame() {
+    ensureUsername(() => {
+        createFirebaseGame();
+    });
+}
+
+async function createFirebaseGame() {
+    const { addDoc, collection } = window.firebaseFuncs;
+    const uid = window.currentUser.uid;
+    
+    const p1Grid = Array(25).fill(""); const p2Grid = Array(25).fill("");
+    const l1 = getWeightedLetter(); const l2 = getWeightedLetter();
+    let p1_pos1 = Math.floor(Math.random() * 25); let p1_pos2 = Math.floor(Math.random() * 25);
+    while(p1_pos2 === p1_pos1) p1_pos2 = Math.floor(Math.random() * 25);
+    p1Grid[p1_pos1] = l1; p1Grid[p1_pos2] = l2;
+    p2Grid[p1_pos1] = l1; p2Grid[p1_pos2] = l2;
+
+    const docRef = await addDoc(collection(window.db, "games"), {
+        hostId: uid, hostName: myUsername,
+        guestId: null, guestName: "Wachten...",
+        turn: "WAITING", status: "waiting",
+        p1Grid: p1Grid, p2Grid: p2Grid,
+        pendingLetter: null, lastUpdated: new Date()
+    });
+    
+    currentGameId = docRef.id;
+    document.getElementById('lobby-start-buttons').style.display = 'none';
+    document.getElementById('share-area').style.display = 'block';
+    joinFirebaseGameById(currentGameId); 
+}
+
+async function shareViaWhatsapp() {
+    const baseUrl = window.location.origin + window.location.pathname; 
+    const gameUrl = `${baseUrl}?game=${currentGameId}`;
+    
+    const shareData = {
+        title: 'LetterDuel',
+        text: 'Ik daag je uit voor een potje LetterDuel! ⚔️',
+        url: gameUrl
+    };
+
+    if (navigator.share) {
+        try {
+            await navigator.share(shareData);
+            return; 
+        } catch (err) {
+            console.log("Delen geannuleerd");
+        }
+    }
+
+    const text = `Ik daag je uit voor LetterDuel! ⚔️\nKlik hier om direct mee te doen:\n${gameUrl}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+}
+
+function copyGameLink() {
+    const baseUrl = window.location.origin + window.location.pathname; 
+    const gameUrl = `${baseUrl}?game=${currentGameId}`;
+
+    navigator.clipboard.writeText(gameUrl).then(() => {
+        showFlashMessage("Gekopieerd!", "Link staat op je klembord!");
+    }).catch(err => {
+        console.error('Kon niet kopiëren: ', err);
+        // Fallback als clipboard API faalt
+        alert("Kopieer deze link:\n" + gameUrl);
+    });
+}
+
+
+// --- ONLINE GUEST FLOW ---
+function handleGuestEntry(gameId) {
+    document.getElementById('start-screen').style.display = 'none'; 
+    ensureUsername(() => {
+        joinFirebaseGameById(gameId);
+    });
+}
+
+function updateSimulationButton() {
+    const simBtn = document.getElementById('simulate-btn');
+    if (!simBtn) return;
+    simBtn.textContent = isSimulationRunning ? '⏹ Stop Sim' : '🧪 Simulatie';
+}
+
+function stopSinglePlayerSimulation() {
+    if (simulationIntervalId) {
+        clearInterval(simulationIntervalId);
+        simulationIntervalId = null;
+    }
+    isSimulationRunning = false;
+    simulationAwaitingAiPick = false;
+    isAiProcessing = false;
+    updateSimulationButton();
+}
+
+function finishSimulationGameSoon() {
+    if (finalTurnProcessed) return;
+    finalTurnProcessed = true;
+    isAiProcessing = true;
+    renderGrid();
+    setTimeout(() => {
+        finishGame();
+        stopSinglePlayerSimulation();
+    }, 800);
+}
+
+function simulatePendingPlacementStep() {
+    if (!pendingLetter) return;
+
+    const targetIndex = getBestPositionForLetter(myGrid, pendingLetter).index;
+    if (targetIndex === -1) {
+        finishSimulationGameSoon();
+        return;
+    }
+
+    performMoveSinglePlayer(targetIndex, pendingLetter);
+    pendingLetter = null;
+    activeCellIndex = null;
+
+    const myCount = myGrid.filter(x => x !== "").length;
+    const oppCount = opponentGrid.filter(x => x !== "").length;
+
+    if (myCount >= 25) {
+        updateUI("SIMULATIE: laatste letter geplaatst...");
+        updateWinChanceVisualization();
+        finishSimulationGameSoon();
+        return;
+    }
+
+    if (myCount === 24 && oppCount === 24) {
+        const prob = calculateWinProbabilityValue(myGrid, opponentGrid);
+        if (prob > 50) {
+            isMyPickTurn = false;
+            simulationAwaitingAiPick = true;
+            updateUI("SIMULATIE: finale, computer kiest laatste letter...");
+        } else {
+            isMyPickTurn = true;
+            simulationAwaitingAiPick = false;
+            updateUI("SIMULATIE: finale, speler kiest laatste letter...");
+        }
+        updateWinChanceVisualization();
+        return;
+    }
+
+    isMyPickTurn = true;
+    updateWinChanceVisualization();
+    updateUI("SIMULATIE: speler aan zet");
+}
+
+function simulatePlayerPickStep() {
+    const pick = getBestPickAndPositionHeuristic(myGrid);
+    if (pick.index === -1) {
+        finishSimulationGameSoon();
+        return;
+    }
+
+    performMoveSinglePlayer(pick.index, pick.letter);
+    const aiMirrorIndex = getBestPositionForLetter(opponentGrid, pick.letter).index;
+    if (aiMirrorIndex !== -1) opponentGrid[aiMirrorIndex] = pick.letter;
+
+    activeCellIndex = null;
+    isMyPickTurn = false;
+    simulationAwaitingAiPick = true;
+    updateWinChanceVisualization();
+    updateUI(`SIMULATIE: speler kiest ${pick.letter}`);
+}
+
+function simulateAiPickStep() {
+    const aiPick = getBestPickAndPositionHeuristic(opponentGrid);
+    if (aiPick.index === -1) {
+        finishSimulationGameSoon();
+        return;
+    }
+
+    opponentGrid[aiPick.index] = aiPick.letter;
+    pendingLetter = aiPick.letter;
+    isMyPickTurn = false;
+    simulationAwaitingAiPick = false;
+    updateWinChanceVisualization();
+    updateUI(`SIMULATIE: computer kiest ${aiPick.letter}`);
+}
+
+function simulationTick() {
+    if (!isSimulationRunning || !isSinglePlayer) {
+        stopSinglePlayerSimulation();
+        return;
+    }
+
+    if (finalTurnProcessed) {
+        stopSinglePlayerSimulation();
+        return;
+    }
+
+    const myCount = myGrid.filter(x => x !== "").length;
+    if (myCount >= 25) {
+        finishSimulationGameSoon();
+        return;
+    }
+
+    if (simulationAwaitingAiPick) {
+        simulateAiPickStep();
+        return;
+    }
+
+    if (pendingLetter) {
+        simulatePendingPlacementStep();
+        return;
+    }
+
+    if (isAiProcessing && !isMyPickTurn) {
+        return;
+    }
+
+    if (isMyPickTurn) {
+        simulatePlayerPickStep();
+    }
+}
+
+function toggleSinglePlayerSimulation() {
+    if (isSimulationRunning) {
+        showFlashMessage("SIMULATIE", "Gestopt");
+        stopSinglePlayerSimulation();
+        updateUI();
+        return;
+    }
+
+    if (!isSinglePlayer || gameUi.style.display !== 'block') {
+        showFlashMessage("SIMULATIE", "Start eerst een computermatch");
+        return;
+    }
+
+    if (finalTurnProcessed || document.getElementById('result-modal').style.display === 'flex') {
+        showFlashMessage("SIMULATIE", "Deze game is al afgelopen");
+        return;
+    }
+
+    isSimulationRunning = true;
+    simulationAwaitingAiPick = false;
+    isAiProcessing = true;
+    updateSimulationButton();
+    showFlashMessage("SIMULATIE", "Auto-play gestart");
+
+    simulationIntervalId = setInterval(simulationTick, 550);
+}
+
+// --- SINGLE PLAYER ---
+function startSinglePlayer(difficulty) {
+    ensureUsername(() => {
+        stopSinglePlayerSimulation();
+        isSinglePlayer = true; aiDifficulty = difficulty; opponentName = "Computer";
+        finalTurnProcessed = false; finaleShown = false; isAiProcessing = false;
+        setupStartGrids(false); 
+        const iStart = Math.random() > 0.5;
+        document.getElementById('start-screen').style.display = 'none';
+        gameUi.style.display = 'block';
+        winChanceContainer.style.display = 'block';
+        
+        showFlashMessage("MUNT OPGOOIEN...", "🪙", 1500);
+        setTimeout(() => {
+            if (iStart) {
+                isMyPickTurn = true;
+                showFlashMessage("Jij Wint!", "JIJ BEGINT");
+                updateUI("JIJ MAG BEGINNEN!");
+            } else {
+                isMyPickTurn = false;
+                showFlashMessage("Helaas!", "COMPUTER BEGINT");
+                updateUI("COMPUTER MAG EERST...");
+                handleAiStart();
+            }
+        }, 1500);
+        updateWinChanceVisualization();
+    });
+}
+
+function handleAiStart() {
+    isAiProcessing = true; 
+    setTimeout(() => {
+        const letters = "ENATIRSLGD";
+        const randomChar = letters.charAt(Math.floor(Math.random() * letters.length));
+        let emptyIndices = opponentGrid.map((v, i) => v === "" ? i : null).filter(v => v !== null);
+        let randomIdx = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
+        opponentGrid[randomIdx] = randomChar;
+        pendingLetter = randomChar;
+        isMyPickTurn = false; 
+        isAiProcessing = false;
+        updateUI(); updateWinChanceVisualization();
+    }, 1000);
+}
+
+async function tryJoinGameAsGuest(gameId, uid, username) {
+    if (isJoiningOnlineGame) return 'pending';
+    isJoiningOnlineGame = true;
+
+    try {
+        const { doc, runTransaction } = window.firebaseFuncs;
+        const gameRef = doc(window.db, "games", gameId);
+
+        const result = await runTransaction(window.db, async (transaction) => {
+            const snap = await transaction.get(gameRef);
+            if (!snap.exists()) return 'missing';
+
+            const gameData = snap.data();
+            if (gameData.guestId && gameData.guestId !== uid) return 'full';
+            if (gameData.guestId === uid) return 'already';
+
+            const hostStarts = Math.random() > 0.5;
+            const startTurn = hostStarts ? gameData.hostId : uid;
+
+            transaction.update(gameRef, {
+                guestId: uid,
+                guestName: username,
+                status: "playing",
+                turn: startTurn
+            });
+
+            return 'joined';
+        });
+
+        return result || 'unknown';
+    } finally {
+        isJoiningOnlineGame = false;
+    }
+}
+
+// --- GAME LOGIC ---
+function joinFirebaseGameById(gameId) {
+    const { doc, onSnapshot } = window.firebaseFuncs;
+    const uid = window.currentUser.uid;
+    currentGameId = gameId;
+
+    unsubscribeGame = onSnapshot(doc(window.db, "games", gameId), (snapshot) => {
+        if (!snapshot.exists()) { alert("Spel bestaat niet of is afgelopen!"); location.href = window.location.pathname; return; }
+        const data = snapshot.data();
+        
+        // Update turn global
+        window.activeTurnPlayerId = data.turn; 
+
+        if (data.hostId === uid) {
+            myRoleId = 'host';
+            opponentName = data.guestName || "Wachten...";
+        }
+        else if (data.guestId === uid) {
+            myRoleId = 'guest';
+            opponentName = data.hostName;
+        }
+        else if (!data.guestId && data.hostId !== uid) {
+            if (!isJoiningOnlineGame) {
+                tryJoinGameAsGuest(gameId, uid, myUsername)
+                    .then((joinStatus) => {
+                        if (joinStatus === 'full') {
+                            alert("Spel is vol!");
+                            location.href = window.location.pathname;
+                        } else if (joinStatus === 'missing') {
+                            alert("Spel bestaat niet of is afgelopen!");
+                            location.href = window.location.pathname;
+                        }
+                    })
+                    .catch((err) => {
+                        console.error("Kon niet joinen:", err);
+                        alert("Kon niet verbinden met het spel.");
+                        location.href = window.location.pathname;
+                    });
+            }
+            return;
+        } else {
+            alert("Spel is vol!"); location.href = window.location.pathname; return;
+        }
+
+        const myGridKey = myRoleId === 'host' ? 'p1Grid' : 'p2Grid';
+        const oppGridKey = myRoleId === 'host' ? 'p2Grid' : 'p1Grid';
+        myGrid = data[myGridKey]; opponentGrid = data[oppGridKey];
+        pendingLetter = data.pendingLetter;
+
+        if (data.status === 'playing') {
+            document.getElementById('start-screen').style.display = 'none';
+            gameUi.style.display = 'block';
+            winChanceContainer.style.display = 'block';
+        } else if (data.status === 'waiting' && myRoleId === 'host') {
+            document.getElementById('start-screen').style.display = 'flex';
+            document.getElementById('lobby-ui').style.display = 'flex';
+            document.getElementById('share-area').style.display = 'block';
+            document.getElementById('lobby-start-buttons').style.display = 'none';
+        }
+
+        if (lastStatus === "waiting" && data.status === "playing") {
+             showFlashMessage("MUNT OPGOOIEN...", "🪙", 1500);
+             setTimeout(() => {
+                 if(data.turn === uid) showFlashMessage("Jij Wint!", "JIJ MAG STARTEN");
+                 else showFlashMessage("Helaas!", "TEGENSTANDER BEGINT");
+             }, 1500);
+        }
+        lastStatus = data.status; 
+        
+        // CHECK EINDE SPEL
+        const myCount = myGrid.filter(c => c!=="").length;
+        const oppCount = opponentGrid.filter(c => c!=="").length;
+        
+        if (myCount >= 25 && oppCount >= 25) {
+             if(!finalTurnProcessed) {
+                 finalTurnProcessed = true; renderGrid(); setTimeout(finishGame, 1500);
+             }
+             return;
+        }
+
+        // Trigger finale visual
+        if (myCount === 24 && oppCount === 24 && !finaleShown) {
+             checkFinaleScenario();
+        }
+
+        if (data.status === 'playing') {
+            if (data.turn === uid) {
+                // FIX: VEILIGHEID: Als het mijn beurt is, mag er nooit een AI-lock op zitten
+                isAiProcessing = false;
+
+                if (pendingLetter) isMyPickTurn = false; else isMyPickTurn = true;
+            } else isMyPickTurn = false;
+        }
+        
+        renderGrid(); updateUI(); updateWinChanceVisualization();
+    });
+}
+
+// -------------------------------------------------------------
+// --- AANGEPASTE LOGICA (UI FIX & FINALE FIX) ---
+// -------------------------------------------------------------
+
+async function sendMoveToFirebase(index, char, isPlacingPending) {
+    // UI direct locken
+    isMyPickTurn = false;
+    pendingLetter = null; 
+    activeCellIndex = null;
+    updateUI(); 
+
+    const { updateDoc, doc, getDoc } = window.firebaseFuncs;
+    const uid = window.currentUser.uid;
+    
+    // Update lokaal en render direct
+    myGrid[index] = char;
+    renderGrid();
+
+    const myGridKey = myRoleId === 'host' ? 'p1Grid' : 'p2Grid';
+    const updates = { [myGridKey]: myGrid };
+    
+    // We moeten even checken wie de opponent is voor updates
+    // (We halen dit uit memory variabelen voor snelheid, snapshot update volgt vanzelf)
+    const oppId = (myRoleId === 'host') ? currentGameId.guestId : currentGameId.hostId;
+    
+    // Om de beurt correct te bepalen hebben we soms de huidige DB state nodig,
+    // maar we kunnen logica baseren op onze actie.
+    const gameSnap = await getDoc(doc(window.db, "games", currentGameId));
+    const gData = gameSnap.data();
+    const currentOppId = myRoleId === 'host' ? gData.guestId : gData.hostId;
+    
+    let nextTurn;
+    let nextPending;
+
+    const myCount = myGrid.filter(x => x !== "").length;
+    const oppCount = opponentGrid.filter(x => x !== "").length;
+
+    if (!isPlacingPending) {
+        // SCENARIO A: IK HEB ZELF EEN LETTER GEKOZEN
+        // Nu is de ander aan de beurt om deze te plaatsen
+        nextPending = char;
+        nextTurn = currentOppId;
+    } else {
+        // SCENARIO B: IK HEB EEN VERPLICHTE (PENDING) LETTER GEPLAATST
+        nextPending = null;
+        
+        // CHECK 1: FINALE TRIGGER (Beide precies 24 letters)
+        if (myCount === 24 && oppCount === 24) {
+            const prob = calculateWinProbabilityValue(myGrid, opponentGrid);
+            // Degene die achter staat (laagste win kans) mag kiezen
+            // Als mijn kans > 50 is, sta ik voor, dus mag de ander kiezen.
+            if (prob > 50) nextTurn = currentOppId; 
+            else nextTurn = uid;
+        } 
+        // CHECK 2: EINDE SPEL (Ik heb net de 25e geplaatst)
+        else if (myCount === 25) {
+             nextTurn = "FINISHED";
+        }
+        // CHECK 3: NORMAAL SPELVERLOOP
+        else {
+            // FIX: Ik heb net een verplicht lettertje gelegd.
+            // Nu is het MIJN beurt om een nieuwe letter te kiezen.
+            // De beurt moet dus NIET naar de opponent, maar bij MIJ blijven.
+            nextTurn = uid; 
+        }
+    }
+
+    updates.pendingLetter = nextPending;
+    updates.turn = nextTurn;
+    await updateDoc(doc(window.db, "games", currentGameId), updates);
+}
+function createGridUI() {
+    gridDisplay.innerHTML = "";
+    for (let i = 0; i < 25; i++) {
+        const cell = document.createElement('div');
+        cell.classList.add('cell'); cell.id = `cell-${i}`;
+        cell.onclick = () => handleCellClick(i);
+        gridDisplay.appendChild(cell);
+    }
+}
+
+function setupStartGrids(asymmetric) {
+    myGrid = Array(25).fill(""); opponentGrid = Array(25).fill("");
+    let l1 = getWeightedLetter(); let l2 = getWeightedLetter();
+    let p1_pos1 = Math.floor(Math.random() * 25); let p1_pos2 = Math.floor(Math.random() * 25);
+    while(p1_pos2 === p1_pos1) p1_pos2 = Math.floor(Math.random() * 25);
+    let p2_pos1 = asymmetric ? Math.floor(Math.random() * 25) : p1_pos1;
+    let p2_pos2 = asymmetric ? Math.floor(Math.random() * 25) : p1_pos2;
+    if(asymmetric) { while(p2_pos2 === p2_pos1) p2_pos2 = Math.floor(Math.random() * 25); }
+    placeInGrid(myGrid, p1_pos1, l1); placeInGrid(myGrid, p1_pos2, l2);
+    placeInGrid(opponentGrid, p2_pos1, l1); placeInGrid(opponentGrid, p2_pos2, l2);
+    renderGrid();
+}
+function placeInGrid(grid, index, letter) { grid[index] = letter; }
+
+function checkFinaleScenario() {
+    const currentCount = myGrid.filter(x => x !== "").length;
+    const oppCount = opponentGrid.filter(x => x !== "").length;
+    
+    // ALLEEN als BEIDE spelers precies 24 letters hebben
+    if (currentCount === 24 && oppCount === 24 && !finaleShown) {
+        finaleShown = true; 
+        const prob = calculateWinProbabilityValue(myGrid, opponentGrid);
+        let msgContent = "";
+        
+        if (prob > 50) {
+            isMyPickTurn = false; 
+            
+            // FIX: ALLEEN LOCKEN BIJ SP
+            if (isSinglePlayer) {
+                isAiProcessing = true; 
+            }
+            // ------------------------
+
+            msgContent = "Jij staat voor... Tegenstander kiest laatste!";
+            if (isSinglePlayer) {
+                setTimeout(() => { handleAiReaction(null); }, 2500); 
+            }
+        } else {
+            isMyPickTurn = true; 
+            msgContent = "Jij staat achter... Jij kiest de laatste!";
+        }
+        showFlashMessage("FINALE!", msgContent, 2000); 
+        updateUI();
+        return true; 
+    }
+    return false; 
+}
+
+function handleCellClick(index) {
+    if (isSimulationRunning) return;
+    if (isAiProcessing) return; 
+    if (myGrid[index] !== "") return;
+    
+    // --- STRIKTE BEURT CONTROLE VOOR ONLINE SPEL ---
+    if (!isSinglePlayer) {
+        if (window.activeTurnPlayerId && window.activeTurnPlayerId !== window.currentUser.uid) {
+            return;
+        }
+    }
+
+    if (isSinglePlayer) {
+        if (pendingLetter) {
+            performMoveSinglePlayer(index, pendingLetter);
+            pendingLetter = null;
+            isMyPickTurn = false;
+            updateUI();
+
+            if (myGrid.filter(x => x !== "").length >= 25) {
+                 if(!finalTurnProcessed) { 
+                     finalTurnProcessed = true; 
+                     isAiProcessing = true; // Lock tijdens finish animatie
+                     renderGrid(); 
+                     setTimeout(finishGame, 1500); 
+                 }
+                 return;
+            }
+            if (checkFinaleScenario()) return; 
+            isMyPickTurn = true; updateUI();
+        } else if (isMyPickTurn) { activeCellIndex = index; updateUI(); }
+    } else {
+        if (pendingLetter) {
+            sendMoveToFirebase(index, pendingLetter, true);
+        } else if (isMyPickTurn) { 
+            activeCellIndex = index; updateUI(); 
+        }
+    }
+}
+
+function handleKey(letter) {
+    if (isSimulationRunning) return;
+    if (isAiProcessing) return; 
+    if (activeCellIndex === null || myGrid[activeCellIndex] !== "") return;
+    
+    if (isSinglePlayer) {
+        if (!isMyPickTurn) return;
+        
+        isMyPickTurn = false;
+        isAiProcessing = true; 
+        
+        performMoveSinglePlayer(activeCellIndex, letter);
+        activeCellIndex = null;
+        updateUI();
+
+        const aiEmptyIndex = getBestPositionForLetter(opponentGrid, letter).index;
+        if(aiEmptyIndex !== -1) opponentGrid[aiEmptyIndex] = letter;
+        updateWinChanceVisualization();
+        
+        const myCount = myGrid.filter(x=>x!=="").length;
+        const oppCount = opponentGrid.filter(x=>x!=="").length;
+
+        if (myCount >= 25) {
+             if(!finalTurnProcessed) { 
+                 finalTurnProcessed = true; 
+                 renderGrid(); 
+                 setTimeout(finishGame, 1500); 
+             }
+        } else if (myCount === 24 && oppCount === 24) {
+             if (checkFinaleScenario()) return;
+             handleAiReaction(null);
+        } else {
+            handleAiReaction(null);
+        }
+    } else {
+        if (!isMyPickTurn) return;
+        sendMoveToFirebase(activeCellIndex, letter, false);
+        activeCellIndex = null;
+    }
+}
+
+// -------------------------------------------------------------
+// --- EINDE AANGEPASTE FUNCTIES ---
+// -------------------------------------------------------------
+
+function performMoveSinglePlayer(index, letter) { myGrid[index] = letter; renderGrid(); }
+
+function handleAiReaction(letterFromPlayer) {
+    if (letterFromPlayer) {
+        opponentGrid[getBestPositionForLetter(opponentGrid, letterFromPlayer).index] = letterFromPlayer;
+        updateWinChanceVisualization();
+    }
+    if (myGrid.filter(x=>x!=="").length >= 25) { 
+        if(!finalTurnProcessed) { 
+            finalTurnProcessed = true; 
+            isAiProcessing = true; // Lock
+            renderGrid(); 
+            setTimeout(finishGame, 1500); 
+        }
+        return; 
+    }
+    updateUI("Computer denkt na...", true);
+    setTimeout(() => {
+        let aiPick;
+        if (aiDifficulty === 'hard') aiPick = getBestPickAndPositionHeuristic(opponentGrid); 
+        else aiPick = getBestPickAndPositionHeuristic(opponentGrid);
+        opponentGrid[aiPick.index] = aiPick.letter;
+        pendingLetter = aiPick.letter;
+        
+        isMyPickTurn = false; 
+        isAiProcessing = false; // UNLOCK HIER PAS
+        updateWinChanceVisualization(); updateUI();
+    }, 500);
+}
+
+function getBestPickAndPositionHeuristic(grid) {
+    let emptyIndices = grid.map((v, i) => v === "" ? i : null).filter(v => v !== null);
+    if(emptyIndices.length === 0) return {index: -1, letter: 'E'};
+    let bestMove = { index: emptyIndices[0], letter: 'E' };
+    let maxScore = -999;
+    const candidates = "ENATIRSLGD"; 
+    for (let char of candidates) {
+        for (let idx of emptyIndices) {
+            let simGrid = [...grid]; simGrid[idx] = char;
+            let points = calculatePoints(simGrid); 
+            points += (calculateDetailedPotential(simGrid) / 5); 
+            if (points > maxScore) { maxScore = points; bestMove = { index: idx, letter: char }; }
+        }
+    }
+    return bestMove;
+}
+
+function getBestPositionForLetter(grid, letter) {
+    let emptyIndices = grid.map((v, i) => v === "" ? i : null).filter(v => v !== null);
+    if (emptyIndices.length === 0) return { index: -1 };
+    let bestIdx = emptyIndices[0]; let maxScore = -1;
+    for (let idx of emptyIndices) {
+        let simGrid = [...grid]; simGrid[idx] = letter;
+        let score = calculatePoints(simGrid); 
+        score += (calculateDetailedPotential(simGrid) / 5);
+        if (score > maxScore) { maxScore = score; bestIdx = idx; }
+    }
+    return { index: bestIdx };
+}
+
+function updateUI(overrideMsg, isThinking) {
+    if (isThinking) { 
+        instructionText.innerText = overrideMsg; 
+        instructionText.style.color = "#95a5a6";
+        letterDisplay.innerText = ""; 
+        keyboard.style.display = 'none'; 
+        return; 
+    }
+
+    const filledCount = myGrid.filter(c => c !== "").length;
+
+    // --- FIX: ALS ROOSTER VOL IS, ALTIJD WACHTEN ---
+    if (filledCount >= 25) {
+        instructionText.innerText = "WACHTEN OP TEGENSTANDER..."; 
+        instructionText.style.color = "#95a5a6"; 
+        instructionText.style.fontSize = "1rem";
+        letterDisplay.innerText = "...";
+        document.body.classList.remove("highlight-empty"); 
+        keyboard.style.display = 'none';
+        return;
+    }
+    // -----------------------------------------------
+
+    // START SITUATIE (2 letters gevuld)
+    if (filledCount === 2) {
+        instructionText.style.fontSize = "0.85rem"; 
+        instructionText.style.color = "#ecf0f1";
+
+        if (pendingLetter) {
+            instructionText.innerText = `2 random letters zijn al geplaatst. Je tegenstander heeft nu op zijn bord de letter ${pendingLetter} geplaatst. Jij moet die ook op jouw bord plaatsen.`;
+            letterDisplay.innerText = pendingLetter;
+            document.body.classList.add("highlight-empty");
+            keyboard.style.display = 'none';
+            return;
+        } else if (isMyPickTurn) {
+            instructionText.innerText = "2 random startletters zijn al geplaatst. Jij bent nu aan de beurt. Selecteer een vakje en plaats daar een letter.";
+            letterDisplay.innerText = "?";
+            document.body.classList.remove("highlight-empty");
+        }
+    }
+
+    // TWEEDE BEURT (3 letters gevuld)
+    if (filledCount === 3) {
+        instructionText.style.fontSize = "0.85rem";
+        instructionText.style.color = "#ecf0f1";
+
+        if (pendingLetter) {
+            instructionText.innerText = `Je tegenstander heeft jouw letter geplaatst en heeft in zijn beurt de letter ${pendingLetter} gekozen. Plaats deze nu op jouw bord.`;
+            letterDisplay.innerText = pendingLetter;
+            document.body.classList.add("highlight-empty");
+            keyboard.style.display = 'none';
+            return;
+        } else if (isMyPickTurn) {
+            instructionText.innerText = "Nu mag jij de letter kiezen. Selecteer een vakje en plaats daar een letter. Zo gaan we om en om.";
+            letterDisplay.innerText = "?";
+            document.body.classList.remove("highlight-empty");
+        }
+    }
+
+    if (filledCount > 3) {
+        instructionText.style.fontSize = "1rem";
+    }
+
+    if (pendingLetter) {
+        // FIX: In SP is het altijd 'jouw beurt' als er een pending letter is
+        let isMyTurn = false;
+        if (isSinglePlayer) {
+            isMyTurn = true;
+        } else {
+            isMyTurn = window.activeTurnPlayerId === window.currentUser.uid;
+        }
+        
+        if (filledCount > 3) {
+            if (isMyTurn) {
+                instructionText.innerText = "PLAATS DE LETTER"; 
+                instructionText.style.color = "var(--secondary)";
+            } else {
+                instructionText.innerText = "TEGENSTANDER IS AAN ZET...";
+                instructionText.style.color = "#95a5a6";
+            }
+        }
+        
+        letterDisplay.innerText = isMyTurn ? pendingLetter : "...";
+        
+        if (isMyTurn) {
+            document.body.classList.add("highlight-empty"); 
+        } else {
+            document.body.classList.remove("highlight-empty");
+        }
+        
+        keyboard.style.display = 'none';
+    } else if (isMyPickTurn) {
+        document.body.classList.remove("highlight-empty");
+        letterDisplay.innerText = "?";
+        
+        if (activeCellIndex !== null) { 
+            instructionText.innerText = "KIES LETTER:"; 
+            instructionText.style.color = "#ecf0f1";
+            instructionText.style.fontSize = "1rem"; 
+            keyboard.style.display = 'flex'; 
+        } else { 
+            if (filledCount > 3) {
+                instructionText.innerText = "KIES EEN VAKJE"; 
+                instructionText.style.color = "#ecf0f1";
+            }
+            keyboard.style.display = 'none'; 
+        }
+    } else {
+        instructionText.innerText = overrideMsg || "WACHTEN OP TEGENSTANDER..."; 
+        instructionText.style.color = "#95a5a6"; 
+        instructionText.style.fontSize = "1rem";
+        letterDisplay.innerText = "...";
+        document.body.classList.remove("highlight-empty"); 
+        keyboard.style.display = 'none';
+    }
+}
+
+function renderGrid() {
+    for (let i = 0; i < 25; i++) {
+        const cell = document.getElementById(`cell-${i}`);
+        cell.innerText = myGrid[i];
+        cell.className = `cell ${myGrid[i] !== "" ? 'filled' : ''}`;
+        cell.style.borderColor = "";
+        if (activeCellIndex === i) cell.style.borderColor = "var(--secondary)";
+    }
+}
+
+function calculatePoints(grid) {
+    let total = 0;
+    for (let r = 0; r < 5; r++) { let row = ""; for (let c = 0; c < 5; c++) row += grid[r*5 + c]; total += getLineScore(row); }
+    for (let c = 0; c < 5; c++) { let col = ""; for (let r = 0; r < 5; r++) col += grid[r*5 + c]; total += getLineScore(col); }
+    return total;
+}
+function getLineScore(str) {
+    if (wordSet.has(str)) return 15;
+    for (let i=0; i<=1; i++) if (wordSet.has(str.substring(i, i+4))) return 10;
+    for (let i=0; i<=2; i++) if (wordSet.has(str.substring(i, i+3))) return 5;
+    return 0;
+}
+
+function calculateDetailedPotential(grid) {
+    let totalPotential = 0; const GAP_PENALTY = 12; const POINTS = { 5: 15, 4: 10, 3: 5 };
+    const analyzeSegment = (segment) => {
+        const len = segment.length; const holes = segment.filter(c => c === "").length;
+        if (holes === 0 || holes === len) return 0;
+        let patternStr = "^"; segment.forEach(c => patternStr += (c === "" ? "." : c)); patternStr += "$";
+        const regex = new RegExp(patternStr);
+        const candidates = wordsByLength[len] || [];
+        let matchCount = 0; for (let w of candidates) { if (regex.test(w)) matchCount++; }
+        if (matchCount === 0) return 0;
+        return (matchCount / Math.pow(GAP_PENALTY, holes)) * POINTS[len];
+    };
+    const scanLine = (lineArr) => {
+        let lineScore = 0;
+        lineScore += analyzeSegment(lineArr); lineScore += analyzeSegment(lineArr.slice(0, 4)); lineScore += analyzeSegment(lineArr.slice(1, 5));
+        lineScore += analyzeSegment(lineArr.slice(0, 3)); lineScore += analyzeSegment(lineArr.slice(1, 4)); lineScore += analyzeSegment(lineArr.slice(2, 5));
+        return lineScore;
+    };
+    for (let r = 0; r < 5; r++) { let row = []; for (let c = 0; c < 5; c++) row.push(grid[r*5 + c]); totalPotential += scanLine(row); }
+    for (let c = 0; c < 5; c++) { let col = []; for (let r = 0; r < 5; r++) col.push(grid[r*5 + c]); totalPotential += scanLine(col); }
+    return totalPotential; 
+}
+
+function calculateWinProbabilityValue(myG, oppG) {
+    const filledCount = myG.filter(c => c !== "").length;
+    const progress = filledCount / 25;
+    const myScore = calculatePoints(myG); const oppScore = calculatePoints(oppG);
+    const myPotential = calculateDetailedPotential(myG); const oppPotential = calculateDetailedPotential(oppG);
+    const scoreWeight = 1 + (progress * 2); const potentialWeight = Math.max(0.1, 1.0 - progress);
+    const myTotal = (myScore * scoreWeight) + (myPotential * potentialWeight);
+    const oppTotal = (oppScore * scoreWeight) + (oppPotential * potentialWeight);
+    let pct = 50; if (myTotal + oppTotal > 0) pct = (myTotal / (myTotal + oppTotal)) * 100;
+    if (filledCount === 25) return pct; else return Math.max(1, Math.min(99, pct));
+}
+
+function updateWinChanceVisualization() {
+    const canvas = document.getElementById('win-chance-canvas'); if (!canvas) return;
+    const ctx = canvas.getContext('2d'); const w = canvas.width; const h = canvas.height;
+    const pct = calculateWinProbabilityValue(myGrid, opponentGrid);
+    ctx.clearRect(0, 0, w, h); ctx.fillStyle = '#1e272e'; ctx.fillRect(0, 0, w, h);
+    const splitX = (w * pct) / 100;
+    let grd = ctx.createLinearGradient(0, 0, splitX, 0);
+    grd.addColorStop(0, "#00d2d3"); grd.addColorStop(1, "#2980b9");
+    ctx.fillStyle = grd; ctx.fillRect(0, 0, splitX, h);
+    ctx.fillStyle = "#ff4757"; ctx.fillRect(splitX, 0, w-splitX, h);
+    ctx.beginPath(); ctx.moveTo(splitX, 0); ctx.lineTo(splitX, h); ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
+    ctx.font = "800 14px 'Roboto', sans-serif"; ctx.textBaseline = "middle";
+    ctx.fillStyle = "white"; ctx.textAlign = "left"; ctx.fillText(`JIJ: ${Math.round(pct)}%`, 10, h/2);
+    ctx.textAlign = "right"; ctx.fillText(`${opponentName}: ${Math.round(100 - pct)}%`, w - 10, h/2);
+}
+
+function getScoringWords(grid) {
+    let highlights = [];
+    for (let r = 0; r < 5; r++) {
+        let rowStr = ""; for (let c = 0; c < 5; c++) rowStr += grid[r*5 + c];
+        let found = false;
+        if (wordSet.has(rowStr)) { highlights.push({type:'row', r, c:0, len:5}); found=true; }
+        if (!found && wordSet.has(rowStr.substring(0,4))) { highlights.push({type:'row', r, c:0, len:4}); found=true; }
+        if (!found && wordSet.has(rowStr.substring(1,5))) { highlights.push({type:'row', r, c:1, len:4}); found=true; }
+        if (!found) {
+            if (wordSet.has(rowStr.substring(0,3))) highlights.push({type:'row', r, c:0, len:3});
+            else if (wordSet.has(rowStr.substring(1,4))) highlights.push({type:'row', r, c:1, len:3});
+            else if (wordSet.has(rowStr.substring(2,5))) highlights.push({type:'row', r, c:2, len:3});
+        }
+    }
+    for (let c = 0; c < 5; c++) {
+        let colStr = ""; for (let r = 0; r < 5; r++) colStr += grid[r*5 + c];
+        let found = false;
+        if (wordSet.has(colStr)) { highlights.push({type:'col', r:0, c, len:5}); found=true; }
+        if (!found && wordSet.has(colStr.substring(0,4))) { highlights.push({type:'col', r:0, c, len:4}); found=true; }
+        if (!found && wordSet.has(colStr.substring(1,5))) { highlights.push({type:'col', r:1, c, len:4}); found=true; }
+        if (!found) {
+            if (wordSet.has(colStr.substring(0,3))) highlights.push({type:'col', r:0, c, len:3});
+            else if (wordSet.has(colStr.substring(1,4))) highlights.push({type:'col', r:1, c, len:3});
+            else if (wordSet.has(colStr.substring(2,5))) highlights.push({type:'col', r:2, c, len:3});
+        }
+    }
+    return highlights;
+}
+
+function finishGame() {
+    const myScore = calculatePoints(myGrid);
+    const oppScore = calculatePoints(opponentGrid);
+    
+    // --- SAVE HIGHSCORE ---
+    if (myScore > 25) {
+        const { addDoc, collection } = window.firebaseFuncs;
+        addDoc(collection(window.db, "highscores"), {
+            name: myUsername || "Player", // Gebruik de gekozen naam!
+            score: myScore,
+            grid: myGrid,
+            timestamp: new Date(),
+            mode: isSinglePlayer ? 'SP' : 'MP'
+        }).then(() => {
+            clearHighscoreCache(); // Force refresh bij volgende keer openen
+        }).catch(e => console.error("Kon score niet opslaan:", e));
+    }
+
+    document.getElementById('my-final-score').innerText = myScore;
+    document.getElementById('opp-final-score').innerText = oppScore;
+    document.getElementById('opponent-name-result').innerText = opponentName;
+    
+    const winnerTxt = document.getElementById('winner-display');
+    if (myScore > oppScore) { winnerTxt.innerText = "🏆 GEWONNEN!"; winnerTxt.style.color = "var(--secondary)"; }
+    else if (oppScore > myScore) { winnerTxt.innerText = "❌ VERLOREN..."; winnerTxt.style.color = "var(--hard)"; }
+    else { winnerTxt.innerText = "🤝 GELIJKSPEL"; winnerTxt.style.color = "#ecf0f1"; }
+    renderMiniGridWithOutlines(myGrid, 'my-mini-grid', 'my-row-scores', 'my-col-scores');
+    renderMiniGridWithOutlines(opponentGrid, 'opp-mini-grid', 'opp-row-scores', 'opp-col-scores');
+    document.getElementById('result-modal').style.display = 'flex';
+    keyboard.style.display = 'none';
+}
+
+function renderMiniGridWithOutlines(gridData, gridId, rowScoresId, colScoresId) {
+    const gridEl = document.getElementById(gridId);
+    const rowEl = document.getElementById(rowScoresId);
+    const colEl = document.getElementById(colScoresId);
+    gridEl.innerHTML = ""; rowEl.innerHTML = ""; colEl.innerHTML = "";
+    
+    for (let i = 0; i < 25; i++) {
+        const d = document.createElement('div');
+        d.className = 'mini-cell'; d.innerText = gridData[i];
+        gridEl.appendChild(d);
+    }
+    const words = getScoringWords(gridData);
+    words.forEach(word => {
+        const overlay = document.createElement('div');
+        overlay.classList.add('word-outline');
+        if (word.type === 'row') {
+            overlay.classList.add('outline-row');
+            overlay.style.left = (word.c * 20) + '%'; overlay.style.top = (word.r * 20) + '%';
+            overlay.style.width = (word.len * 20) + '%'; overlay.style.height = '20%';
+        } else {
+            overlay.classList.add('outline-col');
+            overlay.style.left = (word.c * 20) + '%'; overlay.style.top = (word.r * 20) + '%';
+            overlay.style.width = '20%'; overlay.style.height = (word.len * 20) + '%';
+        }
+        overlay.style.transform = "scale(0.92)";
+        gridEl.appendChild(overlay);
+    });
+
+    for (let r = 0; r < 5; r++) {
+        let rowStr = ""; for (let c = 0; c < 5; c++) rowStr += gridData[r*5 + c];
+        const d = document.createElement('div'); d.className = 'mini-score-cell';
+        const score = getLineScore(rowStr); d.innerText = score > 0 ? score : "-"; rowEl.appendChild(d); 
+    }
+    for (let c = 0; c < 5; c++) {
+        let colStr = ""; for (let r = 0; r < 5; r++) colStr += gridData[r*5 + c];
+        const d = document.createElement('div'); d.className = 'mini-score-cell';
+        const score = getLineScore(colStr); d.innerText = score > 0 ? score : "-"; colEl.appendChild(d); 
+    }
+}
+
+function getWeightedLetter() {
+    const totalWeight = WEIGHTED_LETTERS.reduce((sum, group) => sum + group.weight, 0);
+    let randomNum = Math.random() * totalWeight;
+    for (let group of WEIGHTED_LETTERS) {
+        if (randomNum < group.weight) return group.chars.charAt(Math.floor(Math.random() * group.chars.length));
+        randomNum -= group.weight;
+    }
+    return "E";
+}
+
+async function handleScrambleStart() {
+    if (isAiProcessing) return;
+
+    const filledCount = myGrid.filter(c => c !== "").length;
+    if (filledCount > 2) { showFlashMessage("TE LAAT", "Scramble werkt alleen bij start!", 2000); return; }
+    showFlashMessage("SCRAMBLE!", "Roosters gehusseld...", 1500);
+    const lettersToPlace = myGrid.filter(c => c !== "");
+    const generateNewGrid = (letters) => {
+        let newGrid = Array(25).fill("");
+        let p1 = Math.floor(Math.random() * 25); let p2 = Math.floor(Math.random() * 25);
+        while(p2 === p1) p2 = Math.floor(Math.random() * 25);
+        newGrid[p1] = letters[0]; newGrid[p2] = letters[1];
+        return newGrid;
+    }
+    const newP1Grid = generateNewGrid(lettersToPlace);
+    const newP2Grid = generateNewGrid(lettersToPlace);
+
+    if (isSinglePlayer) { myGrid = newP1Grid; opponentGrid = newP2Grid; renderGrid(); } 
+    else {
+        const { updateDoc, doc } = window.firebaseFuncs;
+        await updateDoc(doc(window.db, "games", currentGameId), { p1Grid: newP1Grid, p2Grid: newP2Grid });
+    }
+}
+
+function handleDebugAutofill() {
+    if (!isDebugMode) return;
+    if (isAiProcessing) return;
+
+    let emptyIndices = []; for (let i = 0; i < 25; i++) if (myGrid[i] === "") emptyIndices.push(i);
+    let spotsToFill = emptyIndices.length - 3;
+    if (spotsToFill <= 0) { showFlashMessage("DEBUG", "Er zijn al 3 of minder vakjes over!"); return; }
+    for (let k = 0; k < spotsToFill; k++) {
+        let idx = emptyIndices[k]; let letter = getWeightedLetter();
+        myGrid[idx] = letter;
+        let oppEmptyIdx = opponentGrid.findIndex(c => c === "");
+        if (oppEmptyIdx !== -1) opponentGrid[oppEmptyIdx] = letter;
+    }
+    pendingLetter = null; isMyPickTurn = true; activeCellIndex = null; finaleShown = false; 
+    renderGrid(); updateWinChanceVisualization(); updateUI("Autofill klaar! Nog 3 beurten...");
+    showFlashMessage("DEBUG", "Doorgespoeld naar de finale! ⏩");
+}
+</script>
+</body>
+</html>
