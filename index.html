@@ -389,7 +389,7 @@
         <div class="control-row">
              <button class="mode-btn btn-scramble" onclick="handleScrambleStart()">🔀 Scramble</button>
              <button class="mode-btn btn-check-small" onclick="openChecker()">🔍 Check</button>
-               <button id="simulate-btn" class="mode-btn btn-check-small" onclick="toggleSinglePlayerSimulation()">🧪 Simulatie</button>
+             <button id="simulate-btn" class="mode-btn btn-check-small" onclick="toggleSimulation()">🧪 Simulatie</button>
              <button class="action-btn" onclick="location.href = window.location.pathname" style="background:#333; color:#aaa; font-size:0.8rem; padding: 10px 20px; box-shadow:none;">Stoppen</button>
         </div>
         <div style="text-align:center;">
@@ -564,6 +564,8 @@ let isJoiningOnlineGame = false;
 let isSimulationRunning = false;
 let simulationIntervalId = null;
 let simulationAwaitingAiPick = false;
+let isOnlineSimulationRunning = false;
+let onlineSimulationIntervalId = null;
 const isDebugMode = ['localhost', '127.0.0.1'].includes(window.location.hostname) || new URLSearchParams(window.location.search).get('debug') === '1';
 
 // Username Handling
@@ -950,7 +952,12 @@ function handleGuestEntry(gameId) {
 function updateSimulationButton() {
     const simBtn = document.getElementById('simulate-btn');
     if (!simBtn) return;
-    simBtn.textContent = isSimulationRunning ? '⏹ Stop Sim' : '🧪 Simulatie';
+
+    if (isSinglePlayer) {
+        simBtn.textContent = isSimulationRunning ? '⏹ Stop Sim' : '🧪 Simulatie';
+    } else {
+        simBtn.textContent = isOnlineSimulationRunning ? '⏹ Stop Online Sim' : '🌐 Sim Online';
+    }
 }
 
 function stopSinglePlayerSimulation() {
@@ -962,6 +969,137 @@ function stopSinglePlayerSimulation() {
     simulationAwaitingAiPick = false;
     isAiProcessing = false;
     updateSimulationButton();
+}
+
+function stopOnlineSimulation() {
+    if (onlineSimulationIntervalId) {
+        clearInterval(onlineSimulationIntervalId);
+        onlineSimulationIntervalId = null;
+    }
+    isOnlineSimulationRunning = false;
+    updateSimulationButton();
+}
+
+async function onlineSimulationTick() {
+    if (!isOnlineSimulationRunning || isSinglePlayer || !currentGameId) {
+        stopOnlineSimulation();
+        return;
+    }
+
+    const { doc, getDoc, updateDoc } = window.firebaseFuncs;
+
+    try {
+        const gameRef = doc(window.db, "games", currentGameId);
+        const snap = await getDoc(gameRef);
+        if (!snap.exists()) {
+            stopOnlineSimulation();
+            return;
+        }
+
+        const data = snap.data();
+        if (data.status !== 'playing' || data.turn === 'FINISHED') {
+            stopOnlineSimulation();
+            return;
+        }
+
+        const hostId = data.hostId;
+        const guestId = data.guestId;
+        if (!hostId || !guestId) {
+            updateUI("SIMULATIE: wacht op 2e speler...");
+            return;
+        }
+
+        let p1Grid = Array.isArray(data.p1Grid) ? [...data.p1Grid] : Array(25).fill("");
+        let p2Grid = Array.isArray(data.p2Grid) ? [...data.p2Grid] : Array(25).fill("");
+        let nextPending = data.pendingLetter || null;
+        let nextTurn = data.turn;
+
+        if (nextPending) {
+            const placerIsHost = nextTurn === hostId;
+            const placerGrid = placerIsHost ? p1Grid : p2Grid;
+            const placement = getBestPositionForLetter(placerGrid, nextPending);
+
+            if (placement.index === -1) {
+                nextTurn = 'FINISHED';
+                nextPending = null;
+            } else {
+                placerGrid[placement.index] = nextPending;
+                nextPending = null;
+
+                const p1Count = p1Grid.filter(c => c !== "").length;
+                const p2Count = p2Grid.filter(c => c !== "").length;
+
+                if (p1Count === 24 && p2Count === 24) {
+                    const p1WinChance = calculateWinProbabilityValue(p1Grid, p2Grid);
+                    nextTurn = p1WinChance > 50 ? guestId : hostId;
+                } else if (placerGrid.filter(c => c !== "").length >= 25) {
+                    nextTurn = 'FINISHED';
+                }
+            }
+        } else {
+            const pickerIsHost = nextTurn === hostId;
+            const pickerGrid = pickerIsHost ? p1Grid : p2Grid;
+            const otherPlayerId = pickerIsHost ? guestId : hostId;
+
+            const pick = getBestPickAndPositionHeuristic(pickerGrid);
+            if (pick.index === -1) {
+                nextTurn = 'FINISHED';
+            } else {
+                pickerGrid[pick.index] = pick.letter;
+                nextPending = pick.letter;
+                nextTurn = otherPlayerId;
+            }
+        }
+
+        await updateDoc(gameRef, {
+            p1Grid,
+            p2Grid,
+            pendingLetter: nextPending,
+            turn: nextTurn,
+            status: nextTurn === 'FINISHED' ? 'finished' : 'playing',
+            lastUpdated: new Date()
+        });
+    } catch (err) {
+        console.error("Online simulatie fout:", err);
+        stopOnlineSimulation();
+        showFlashMessage("ONLINE SIM", "Gestopt door fout");
+    }
+}
+
+function toggleOnlineSimulation() {
+    if (isOnlineSimulationRunning) {
+        stopOnlineSimulation();
+        showFlashMessage("ONLINE SIM", "Gestopt");
+        return;
+    }
+
+    if (isSinglePlayer || gameUi.style.display !== 'block' || !currentGameId) {
+        showFlashMessage("ONLINE SIM", "Start eerst een online game");
+        return;
+    }
+
+    if (myRoleId !== 'host') {
+        showFlashMessage("ONLINE SIM", "Alleen host kan simuleren");
+        return;
+    }
+
+    if (document.getElementById('result-modal').style.display === 'flex') {
+        showFlashMessage("ONLINE SIM", "Deze game is al afgelopen");
+        return;
+    }
+
+    isOnlineSimulationRunning = true;
+    updateSimulationButton();
+    showFlashMessage("ONLINE SIM", "Auto-play gestart");
+    onlineSimulationIntervalId = setInterval(onlineSimulationTick, 650);
+}
+
+function toggleSimulation() {
+    if (isSinglePlayer) {
+        toggleSinglePlayerSimulation();
+    } else {
+        toggleOnlineSimulation();
+    }
 }
 
 function finishSimulationGameSoon() {
@@ -1117,6 +1255,7 @@ function toggleSinglePlayerSimulation() {
 // --- SINGLE PLAYER ---
 function startSinglePlayer(difficulty) {
     ensureUsername(() => {
+        stopOnlineSimulation();
         stopSinglePlayerSimulation();
         isSinglePlayer = true; aiDifficulty = difficulty; opponentName = "Computer";
         finalTurnProcessed = false; finaleShown = false; isAiProcessing = false;
@@ -1246,11 +1385,17 @@ function joinFirebaseGameById(gameId) {
             document.getElementById('start-screen').style.display = 'none';
             gameUi.style.display = 'block';
             winChanceContainer.style.display = 'block';
+            isSinglePlayer = false;
+            updateSimulationButton();
         } else if (data.status === 'waiting' && myRoleId === 'host') {
             document.getElementById('start-screen').style.display = 'flex';
             document.getElementById('lobby-ui').style.display = 'flex';
             document.getElementById('share-area').style.display = 'block';
             document.getElementById('lobby-start-buttons').style.display = 'none';
+        }
+
+        if (isOnlineSimulationRunning && (data.status !== 'playing' || data.turn === 'FINISHED')) {
+            stopOnlineSimulation();
         }
 
         if (lastStatus === "waiting" && data.status === "playing") {
@@ -1421,7 +1566,7 @@ function checkFinaleScenario() {
 }
 
 function handleCellClick(index) {
-    if (isSimulationRunning) return;
+    if (isSimulationRunning || isOnlineSimulationRunning) return;
     if (isAiProcessing) return; 
     if (myGrid[index] !== "") return;
     
@@ -1461,7 +1606,7 @@ function handleCellClick(index) {
 }
 
 function handleKey(letter) {
-    if (isSimulationRunning) return;
+    if (isSimulationRunning || isOnlineSimulationRunning) return;
     if (isAiProcessing) return; 
     if (activeCellIndex === null || myGrid[activeCellIndex] !== "") return;
     
