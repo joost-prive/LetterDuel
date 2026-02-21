@@ -31,7 +31,8 @@
         // Globale variabele om de beurt bij te houden
         window.activeTurnPlayerId = null;
 
-        signInAnonymously(window.auth).then((u) => {
+        window.currentUser = null;
+        window.authReadyPromise = signInAnonymously(window.auth).then((u) => {
             console.log("Ingelogd als:", u.user.uid);
             window.currentUser = u.user;
 
@@ -44,7 +45,11 @@
                     window.checkAndJoin();
                 }
             }
-        }).catch(e => console.error(e));
+            return u.user;
+        }).catch(e => {
+            console.error(e);
+            return null;
+        });
     </script>
 
     <style>
@@ -664,9 +669,11 @@ function closeViewGrid() { document.getElementById('view-grid-modal').style.disp
 let hsCurrentScope = 'global'; 
 let hsCurrentTab = 'today';
 let hsCache = { global: null, personal: null }; 
+let hsLastError = null;
 
 function clearHighscoreCache() {
     hsCache = { global: null, personal: null };
+    hsLastError = null;
     renderHighscores(); 
 }
 
@@ -693,6 +700,7 @@ async function switchHighscoreTab(period, btnElement) {
 
 async function fetchScoresForScope(scope) {
     if (hsCache[scope]) return hsCache[scope];
+    hsLastError = null;
     
     const { collection, query, orderBy, limit, getDocs, where } = window.firebaseFuncs;
     let q;
@@ -719,7 +727,18 @@ async function fetchScoresForScope(scope) {
         hsCache[scope] = data; 
         return data;
     } catch(e) {
-        console.error("Fetch error:", e);
+        const errCode = (e && e.code) ? e.code : '';
+        const errMsg = String((e && e.message) ? e.message : '').toLowerCase();
+        const isPermissionDenied = errCode === 'permission-denied' || errMsg.includes('insufficient permissions');
+
+        hsLastError = {
+            type: isPermissionDenied ? 'permission-denied' : 'unknown',
+            original: e
+        };
+
+        if (!isPermissionDenied) {
+            console.error("Fetch error:", e);
+        }
         return null;
     }
 }
@@ -728,7 +747,14 @@ async function renderHighscores() {
     const listEl = document.getElementById('hs-list');
     listEl.innerHTML = '<div style="color:#888; padding:20px;">Scores ophalen...</div>';
     const allScores = await fetchScoresForScope(hsCurrentScope);
-    if (!allScores) { listEl.innerHTML = '<div style="color:var(--hard)">Fout bij laden of index ontbreekt :(</div>'; return; }
+    if (!allScores) {
+        if (hsLastError && hsLastError.type === 'permission-denied') {
+            listEl.innerHTML = '<div style="color:#f1c40f; padding:20px; line-height:1.5;">Highscores zijn nu niet toegankelijk door Firestore permissions.<br>Controleer de rules voor collectie "highscores".</div>';
+        } else {
+            listEl.innerHTML = '<div style="color:var(--hard); padding:20px;">Fout bij laden van highscores. Probeer opnieuw.</div>';
+        }
+        return;
+    }
 
     const now = new Date();
     let filteredList = [];
@@ -818,7 +844,19 @@ function hideOnlineLobby() {
     document.getElementById('main-menu').style.display = 'flex';
 }
 
-function prepareOnlineGame() {
+async function ensureFirebaseAuthReady() {
+    if (window.currentUser) return true;
+    if (window.authReadyPromise) {
+        try {
+            await window.authReadyPromise;
+        } catch (e) {
+            console.error("Auth init fout:", e);
+        }
+    }
+    return !!window.currentUser;
+}
+
+async function prepareOnlineGame() {
     ensureUsername(() => {
         createFirebaseGame();
     });
@@ -826,6 +864,12 @@ function prepareOnlineGame() {
 
 async function createFirebaseGame() {
     const { addDoc, collection } = window.firebaseFuncs;
+    const isReady = await ensureFirebaseAuthReady();
+    if (!isReady) {
+        showFlashMessage("Online niet klaar", "Nog geen Firebase login");
+        return;
+    }
+
     const uid = window.currentUser.uid;
     
     const p1Grid = Array(25).fill(""); const p2Grid = Array(25).fill("");
@@ -835,18 +879,27 @@ async function createFirebaseGame() {
     p1Grid[p1_pos1] = l1; p1Grid[p1_pos2] = l2;
     p2Grid[p1_pos1] = l1; p2Grid[p1_pos2] = l2;
 
-    const docRef = await addDoc(collection(window.db, "games"), {
-        hostId: uid, hostName: myUsername,
-        guestId: null, guestName: "Wachten...",
-        turn: "WAITING", status: "waiting",
-        p1Grid: p1Grid, p2Grid: p2Grid,
-        pendingLetter: null, lastUpdated: new Date()
-    });
-    
-    currentGameId = docRef.id;
-    document.getElementById('lobby-start-buttons').style.display = 'none';
-    document.getElementById('share-area').style.display = 'block';
-    joinFirebaseGameById(currentGameId); 
+    try {
+        const docRef = await addDoc(collection(window.db, "games"), {
+            hostId: uid, hostName: myUsername,
+            guestId: null, guestName: "Wachten...",
+            turn: "WAITING", status: "waiting",
+            p1Grid: p1Grid, p2Grid: p2Grid,
+            pendingLetter: null, lastUpdated: new Date()
+        });
+        
+        currentGameId = docRef.id;
+        document.getElementById('lobby-start-buttons').style.display = 'none';
+        document.getElementById('share-area').style.display = 'block';
+        joinFirebaseGameById(currentGameId);
+    } catch (error) {
+        console.error("Online game aanmaken mislukt:", error);
+        if (error && (error.code === 'permission-denied' || String(error.message || '').toLowerCase().includes('insufficient permissions'))) {
+            alert("Firebase weigert toegang (permission-denied). Controleer Firestore Rules voor anonieme spelers op collectie 'games'.");
+        } else {
+            alert("Kon online game niet starten. Probeer het opnieuw.");
+        }
+    }
 }
 
 async function shareViaWhatsapp() {
