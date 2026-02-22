@@ -103,6 +103,7 @@
         .mode-btn span { font-size: 1.2rem; }
         .btn-computer { background-color: #3498db; }
         .btn-online { background-color: var(--secondary); color: #000; }
+        .btn-daily { background-color: #f39c12; color: #fff; box-shadow: 0 4px 0 #d68910; }
         .btn-highscore { background-color: #9b59b6; color: #fff; box-shadow: 0 4px 0 #8e44ad; }
         
         .btn-easy { background-color: var(--easy); box-shadow: 0 4px 0 #218c53;}
@@ -316,6 +317,7 @@
         <div id="main-menu">
             <button class="mode-btn btn-computer" onclick="showDifficultySelect()"><span>🤖</span> Tegen Computer</button>
             <button class="mode-btn btn-online" onclick="showOnlineLobby()"><span>⚔️</span> Online Duel</button>
+            <button class="mode-btn btn-daily" onclick="startDailyMode()"><span>📅</span> Daily</button>
             <button class="mode-btn btn-highscore" onclick="openHighscores()"><span>🏆</span> Highscores</button>
         </div>
 
@@ -432,6 +434,15 @@
                     <div class="horizontal-scores" id="opp-col-scores"></div>
                 </div>
             </div>
+        </div>
+        <div id="daily-share-controls" style="display:none; margin-top: 10px;">
+            <div style="font-size:0.8rem; color:#95a5a6; margin-bottom:10px; text-transform:uppercase; font-weight:700;">DEEL JE DAILY RESULTAAT</div>
+            <div class="control-row" style="margin-top:0; margin-bottom:8px;">
+                <button class="mode-btn btn-online" style="padding:10px 12px; font-size:0.8rem;" onclick="shareDailyResult('x')">𝕏 Twitter</button>
+                <button class="mode-btn btn-online" style="padding:10px 12px; font-size:0.8rem;" onclick="shareDailyResult('facebook')">Facebook</button>
+                <button class="mode-btn btn-online" style="padding:10px 12px; font-size:0.8rem;" onclick="shareDailyResult('whatsapp')">WhatsApp</button>
+            </div>
+            <button class="action-btn" style="width:100%;" onclick="downloadDailyResultCard()">📥 Download scorekaart</button>
         </div>
         <button class="action-btn" onclick="location.href = window.location.pathname">TERUG NAAR MENU</button>
     </div>
@@ -566,6 +577,12 @@ let simulationIntervalId = null;
 let simulationAwaitingAiPick = false;
 let isOnlineSimulationRunning = false;
 let onlineSimulationIntervalId = null;
+let gameMode = 'menu';
+let currentDailyDateKey = null;
+let currentDailyPuzzle = null;
+let dailyAiSequenceIndex = 0;
+let dailyGameFinished = false;
+let lastDailyResultPayload = null;
 const isDebugMode = ['localhost', '127.0.0.1'].includes(window.location.hostname) || new URLSearchParams(window.location.search).get('debug') === '1';
 
 // Username Handling
@@ -597,6 +614,96 @@ window.checkAndJoin = function() {
         window.pendingInviteId = null; 
         handleGuestEntry(gameId);
     }
+}
+
+function getUtcDateKey(date = new Date()) {
+    const y = date.getUTCFullYear();
+    const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(date.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
+function hashStringToSeed(input) {
+    let hash = 2166136261;
+    for (let i = 0; i < input.length; i++) {
+        hash ^= input.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0) || 123456789;
+}
+
+function createSeededRandom(seed) {
+    let value = seed >>> 0;
+    return function seeded() {
+        value += 0x6D2B79F5;
+        let t = value;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+
+function pickWeightedLetterFromRng(rng) {
+    const totalWeight = WEIGHTED_LETTERS.reduce((sum, group) => sum + group.weight, 0);
+    let randomNum = rng() * totalWeight;
+    for (let group of WEIGHTED_LETTERS) {
+        if (randomNum < group.weight) {
+            return group.chars.charAt(Math.floor(rng() * group.chars.length));
+        }
+        randomNum -= group.weight;
+    }
+    return 'E';
+}
+
+function buildDailyPuzzle(dateKey) {
+    const seed = hashStringToSeed(`LETTERDUEL-DAILY-${dateKey}`);
+    const rng = createSeededRandom(seed);
+
+    const startLetter1 = pickWeightedLetterFromRng(rng);
+    const startLetter2 = pickWeightedLetterFromRng(rng);
+    let startPos1 = Math.floor(rng() * 25);
+    let startPos2 = Math.floor(rng() * 25);
+    while (startPos2 === startPos1) {
+        startPos2 = Math.floor(rng() * 25);
+    }
+
+    const aiSequence = [];
+    for (let i = 0; i < 11; i++) {
+        aiSequence.push(pickWeightedLetterFromRng(rng));
+    }
+
+    return {
+        dateKey,
+        startLetters: [startLetter1, startLetter2],
+        startPositions: [startPos1, startPos2],
+        aiSequence,
+        createdAt: new Date(),
+        version: 1
+    };
+}
+
+async function getOrCreateDailyPuzzle(dateKey) {
+    const { doc, runTransaction } = window.firebaseFuncs;
+    const puzzleRef = doc(window.db, 'daily_puzzles', dateKey);
+
+    const puzzle = await runTransaction(window.db, async (transaction) => {
+        const snap = await transaction.get(puzzleRef);
+        if (snap.exists()) return snap.data();
+
+        const generated = buildDailyPuzzle(dateKey);
+        transaction.set(puzzleRef, generated);
+        return generated;
+    });
+
+    return puzzle;
+}
+
+async function hasPlayedDaily(dateKey, uid) {
+    const { doc, getDoc } = window.firebaseFuncs;
+    const resultRef = doc(window.db, 'daily_results', dateKey, 'entries', uid);
+    const resultSnap = await getDoc(resultRef);
+    if (!resultSnap.exists()) return { played: false };
+    return { played: true, data: resultSnap.data() };
 }
 
 // --- USERNAME FLOW ---
@@ -836,14 +943,104 @@ function hideDifficultySelect() { document.getElementById('difficulty-select').s
 
 // --- ONLINE HOST FLOW ---
 function showOnlineLobby() {
+    isSinglePlayer = false;
+    gameMode = 'online';
     document.getElementById('main-menu').style.display = 'none';
     document.getElementById('lobby-ui').style.display = 'flex';
     document.getElementById('lobby-start-buttons').style.display = 'block';
     document.getElementById('share-area').style.display = 'none';
+    document.getElementById('daily-share-controls').style.display = 'none';
+    updateSimulationButton();
 }
 function hideOnlineLobby() {
     document.getElementById('lobby-ui').style.display = 'none';
     document.getElementById('main-menu').style.display = 'flex';
+}
+
+async function startDailyMode() {
+    ensureUsername(async () => {
+        const isReady = await ensureFirebaseAuthReady();
+        if (!isReady) {
+            showFlashMessage('Daily', 'Nog geen Firebase login');
+            return;
+        }
+
+        const uid = window.currentUser.uid;
+        const dateKey = getUtcDateKey();
+
+        try {
+            const playedState = await hasPlayedDaily(dateKey, uid);
+            if (playedState.played) {
+                const result = playedState.data || {};
+                const score = result.playerScore ?? '-';
+                const wonText = result.won ? 'Gewonnen' : 'Verloren';
+                showFlashMessage('Daily al gespeeld', `${wonText} • Score ${score}`, 2600);
+                return;
+            }
+
+            const puzzle = await getOrCreateDailyPuzzle(dateKey);
+            initializeDailyGame(puzzle, dateKey);
+        } catch (e) {
+            console.error('Daily start fout:', e);
+            showFlashMessage('Daily', 'Daily puzzel kon niet laden');
+        }
+    });
+}
+
+function initializeDailyGame(puzzle, dateKey) {
+    if (unsubscribeGame) {
+        unsubscribeGame();
+        unsubscribeGame = null;
+    }
+
+    stopOnlineSimulation();
+    stopSinglePlayerSimulation();
+
+    currentGameId = null;
+    myRoleId = null;
+    window.activeTurnPlayerId = null;
+
+    isSinglePlayer = true;
+    gameMode = 'daily';
+    aiDifficulty = 'hard';
+    opponentName = 'Daily AI';
+    finalTurnProcessed = false;
+    finaleShown = false;
+    isAiProcessing = false;
+    pendingLetter = null;
+    activeCellIndex = null;
+    isMyPickTurn = true;
+    dailyGameFinished = false;
+    lastDailyResultPayload = null;
+
+    currentDailyPuzzle = puzzle;
+    currentDailyDateKey = dateKey;
+    dailyAiSequenceIndex = 0;
+
+    myGrid = Array(25).fill('');
+    opponentGrid = Array(25).fill('');
+
+    const startLetters = Array.isArray(puzzle.startLetters) ? puzzle.startLetters : [];
+    const startPositions = Array.isArray(puzzle.startPositions) ? puzzle.startPositions : [];
+    if (startLetters.length < 2 || startPositions.length < 2) {
+        showFlashMessage('Daily', 'Ongeldige daily puzzel');
+        return;
+    }
+
+    myGrid[startPositions[0]] = startLetters[0];
+    myGrid[startPositions[1]] = startLetters[1];
+    opponentGrid[startPositions[0]] = startLetters[0];
+    opponentGrid[startPositions[1]] = startLetters[1];
+
+    document.getElementById('start-screen').style.display = 'none';
+    gameUi.style.display = 'block';
+    winChanceContainer.style.display = 'none';
+    document.getElementById('daily-share-controls').style.display = 'none';
+
+    renderGrid();
+    updateUI('DAILY: JIJ BEGINT');
+    updateSimulationButton();
+    showFlashMessage('DAILY', `Puzzel van ${dateKey}`);
 }
 
 async function ensureFirebaseAuthReady() {
@@ -943,20 +1140,27 @@ function copyGameLink() {
 
 // --- ONLINE GUEST FLOW ---
 function handleGuestEntry(gameId) {
+    isSinglePlayer = false;
+    gameMode = 'online';
+    updateSimulationButton();
     document.getElementById('start-screen').style.display = 'none'; 
     ensureUsername(() => {
         joinFirebaseGameById(gameId);
     });
 }
 
+function isOnlineSessionActive() {
+    return gameMode === 'online' && !isSinglePlayer && !!currentGameId && !!myRoleId;
+}
+
 function updateSimulationButton() {
     const simBtn = document.getElementById('simulate-btn');
     if (!simBtn) return;
 
-    if (isSinglePlayer) {
-        simBtn.textContent = isSimulationRunning ? '⏹ Stop Sim' : '🧪 Simulatie';
-    } else {
+    if (isOnlineSessionActive()) {
         simBtn.textContent = isOnlineSimulationRunning ? '⏹ Stop Online Sim' : '🌐 Sim Online';
+    } else {
+        simBtn.textContent = isSimulationRunning ? '⏹ Stop Sim' : '🧪 Simulatie';
     }
 }
 
@@ -1095,10 +1299,10 @@ function toggleOnlineSimulation() {
 }
 
 function toggleSimulation() {
-    if (isSinglePlayer) {
-        toggleSinglePlayerSimulation();
-    } else {
+    if (isOnlineSessionActive()) {
         toggleOnlineSimulation();
+    } else {
+        toggleSinglePlayerSimulation();
     }
 }
 
@@ -1133,6 +1337,13 @@ function simulatePendingPlacementStep() {
         updateUI("SIMULATIE: laatste letter geplaatst...");
         updateWinChanceVisualization();
         finishSimulationGameSoon();
+        return;
+    }
+
+    if (gameMode === 'daily') {
+        isMyPickTurn = true;
+        simulationAwaitingAiPick = false;
+        updateUI("SIMULATIE: daily speler aan zet");
         return;
     }
 
@@ -1189,6 +1400,33 @@ function simulateAiPickStep() {
     updateUI(`SIMULATIE: computer kiest ${aiPick.letter}`);
 }
 
+function simulateDailyAiPickStep() {
+    if (!currentDailyPuzzle || !Array.isArray(currentDailyPuzzle.aiSequence)) {
+        finishSimulationGameSoon();
+        return;
+    }
+
+    if (dailyAiSequenceIndex >= currentDailyPuzzle.aiSequence.length) {
+        finishSimulationGameSoon();
+        return;
+    }
+
+    const nextLetter = currentDailyPuzzle.aiSequence[dailyAiSequenceIndex];
+    dailyAiSequenceIndex += 1;
+
+    const aiPickIndex = getBestPositionForLetter(opponentGrid, nextLetter).index;
+    if (aiPickIndex === -1) {
+        finishSimulationGameSoon();
+        return;
+    }
+
+    opponentGrid[aiPickIndex] = nextLetter;
+    pendingLetter = nextLetter;
+    isMyPickTurn = false;
+    simulationAwaitingAiPick = false;
+    updateUI(`SIMULATIE: daily AI kiest ${nextLetter}`);
+}
+
 function simulationTick() {
     if (!isSimulationRunning || !isSinglePlayer) {
         stopSinglePlayerSimulation();
@@ -1204,6 +1442,23 @@ function simulationTick() {
     if (myCount >= 25) {
         finishSimulationGameSoon();
         return;
+    }
+
+    if (gameMode === 'daily') {
+        if (simulationAwaitingAiPick) {
+            simulateDailyAiPickStep();
+            return;
+        }
+
+        if (pendingLetter) {
+            simulatePendingPlacementStep();
+            return;
+        }
+
+        if (isMyPickTurn) {
+            simulatePlayerPickStep();
+            return;
+        }
     }
 
     if (simulationAwaitingAiPick) {
@@ -1234,7 +1489,7 @@ function toggleSinglePlayerSimulation() {
     }
 
     if (!isSinglePlayer || gameUi.style.display !== 'block') {
-        showFlashMessage("SIMULATIE", "Start eerst een computermatch");
+        showFlashMessage("SIMULATIE", "Start eerst een singleplayer of Daily match");
         return;
     }
 
@@ -1255,15 +1510,30 @@ function toggleSinglePlayerSimulation() {
 // --- SINGLE PLAYER ---
 function startSinglePlayer(difficulty) {
     ensureUsername(() => {
+        if (unsubscribeGame) {
+            unsubscribeGame();
+            unsubscribeGame = null;
+        }
+        currentGameId = null;
+        myRoleId = null;
+        window.activeTurnPlayerId = null;
         stopOnlineSimulation();
         stopSinglePlayerSimulation();
-        isSinglePlayer = true; aiDifficulty = difficulty; opponentName = "Computer";
+        isSinglePlayer = true;
+        gameMode = 'single';
+        currentDailyPuzzle = null;
+        currentDailyDateKey = null;
+        dailyAiSequenceIndex = 0;
+        dailyGameFinished = false;
+        lastDailyResultPayload = null;
+        aiDifficulty = difficulty; opponentName = "Computer";
         finalTurnProcessed = false; finaleShown = false; isAiProcessing = false;
         setupStartGrids(false); 
         const iStart = Math.random() > 0.5;
         document.getElementById('start-screen').style.display = 'none';
         gameUi.style.display = 'block';
         winChanceContainer.style.display = 'block';
+        document.getElementById('daily-share-controls').style.display = 'none';
         
         showFlashMessage("MUNT OPGOOIEN...", "🪙", 1500);
         setTimeout(() => {
@@ -1386,6 +1656,8 @@ function joinFirebaseGameById(gameId) {
             gameUi.style.display = 'block';
             winChanceContainer.style.display = 'block';
             isSinglePlayer = false;
+            gameMode = 'online';
+            document.getElementById('daily-share-controls').style.display = 'none';
             updateSimulationButton();
         } else if (data.status === 'waiting' && myRoleId === 'host') {
             document.getElementById('start-screen').style.display = 'flex';
@@ -1532,6 +1804,7 @@ function setupStartGrids(asymmetric) {
 function placeInGrid(grid, index, letter) { grid[index] = letter; }
 
 function checkFinaleScenario() {
+    if (gameMode === 'daily') return false;
     const currentCount = myGrid.filter(x => x !== "").length;
     const oppCount = opponentGrid.filter(x => x !== "").length;
     
@@ -1593,6 +1866,13 @@ function handleCellClick(index) {
                  }
                  return;
             }
+
+            if (gameMode === 'daily') {
+                isMyPickTurn = true;
+                updateUI('DAILY: JIJ KIEST DE VOLGENDE LETTER');
+                return;
+            }
+
             if (checkFinaleScenario()) return; 
             isMyPickTurn = true; updateUI();
         } else if (isMyPickTurn) { activeCellIndex = index; updateUI(); }
@@ -1622,7 +1902,8 @@ function handleKey(letter) {
 
         const aiEmptyIndex = getBestPositionForLetter(opponentGrid, letter).index;
         if(aiEmptyIndex !== -1) opponentGrid[aiEmptyIndex] = letter;
-        updateWinChanceVisualization();
+
+        if (gameMode !== 'daily') updateWinChanceVisualization();
         
         const myCount = myGrid.filter(x=>x!=="").length;
         const oppCount = opponentGrid.filter(x=>x!=="").length;
@@ -1633,6 +1914,9 @@ function handleKey(letter) {
                  renderGrid(); 
                  setTimeout(finishGame, 1500); 
              }
+           } else if (gameMode === 'daily') {
+               handleDailyAiReaction();
+               return;
         } else if (myCount === 24 && oppCount === 24) {
              if (checkFinaleScenario()) return;
              handleAiReaction(null);
@@ -1644,6 +1928,53 @@ function handleKey(letter) {
         sendMoveToFirebase(activeCellIndex, letter, false);
         activeCellIndex = null;
     }
+}
+
+function handleDailyAiReaction() {
+    if (!currentDailyPuzzle || !Array.isArray(currentDailyPuzzle.aiSequence)) {
+        showFlashMessage('Daily', 'Puzzelgegevens ontbreken');
+        return;
+    }
+
+    if (myGrid.filter(x => x !== "").length >= 25) {
+        if (!finalTurnProcessed) {
+            finalTurnProcessed = true;
+            renderGrid();
+            setTimeout(finishGame, 1500);
+        }
+        return;
+    }
+
+    if (dailyAiSequenceIndex >= currentDailyPuzzle.aiSequence.length) {
+        if (!finalTurnProcessed) {
+            finalTurnProcessed = true;
+            renderGrid();
+            setTimeout(finishGame, 1500);
+        }
+        return;
+    }
+
+    isAiProcessing = true;
+    updateUI('Daily AI denkt na...', true);
+    setTimeout(() => {
+        const nextLetter = currentDailyPuzzle.aiSequence[dailyAiSequenceIndex];
+        dailyAiSequenceIndex += 1;
+
+        const aiPlacement = getBestPositionForLetter(opponentGrid, nextLetter).index;
+        if (aiPlacement !== -1) {
+            opponentGrid[aiPlacement] = nextLetter;
+            pendingLetter = nextLetter;
+            isMyPickTurn = false;
+            isAiProcessing = false;
+            updateUI('DAILY: PLAATS DE LETTER');
+        } else {
+            if (!finalTurnProcessed) {
+                finalTurnProcessed = true;
+                renderGrid();
+                setTimeout(finishGame, 1500);
+            }
+        }
+    }, 450);
 }
 
 // -------------------------------------------------------------
@@ -1886,6 +2217,7 @@ function calculateWinProbabilityValue(myG, oppG) {
 }
 
 function updateWinChanceVisualization() {
+    if (gameMode === 'daily') return;
     const canvas = document.getElementById('win-chance-canvas'); if (!canvas) return;
     const ctx = canvas.getContext('2d'); const w = canvas.width; const h = canvas.height;
     const pct = calculateWinProbabilityValue(myGrid, opponentGrid);
@@ -1930,22 +2262,275 @@ function getScoringWords(grid) {
     return highlights;
 }
 
+async function saveDailyResult(myScore, oppScore) {
+    if (gameMode !== 'daily' || !currentDailyDateKey || !window.currentUser) return;
+    if (dailyGameFinished) return;
+
+    const { doc, runTransaction } = window.firebaseFuncs;
+    const uid = window.currentUser.uid;
+    const resultRef = doc(window.db, 'daily_results', currentDailyDateKey, 'entries', uid);
+    const payload = {
+        uid,
+        name: myUsername || 'Player',
+        dateKey: currentDailyDateKey,
+        playerScore: myScore,
+        aiScore: oppScore,
+        won: myScore > oppScore,
+        playedAt: new Date(),
+        mode: 'DAILY'
+    };
+
+    await runTransaction(window.db, async (transaction) => {
+        const existing = await transaction.get(resultRef);
+        if (existing.exists()) {
+            throw new Error('daily-already-played');
+        }
+        transaction.set(resultRef, payload);
+    });
+
+    dailyGameFinished = true;
+    lastDailyResultPayload = payload;
+}
+
+function createDailyShareText() {
+    if (!lastDailyResultPayload) return 'Ik speelde vandaag de Daily van LetterDuel!';
+    const resultWord = lastDailyResultPayload.won ? 'Gewonnen' : 'Verloren';
+    return `LetterDuel Daily ${lastDailyResultPayload.dateKey} • ${resultWord} • Ik ${lastDailyResultPayload.playerScore} - AI ${lastDailyResultPayload.aiScore}`;
+}
+
+function drawRoundedRect(ctx, x, y, width, height, radius) {
+    const r = Math.min(radius, width / 2, height / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + width - r, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+    ctx.lineTo(x + width, y + height - r);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+    ctx.lineTo(x + r, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+}
+
+function drawDailyGridCard(ctx, grid, x, y, title, score) {
+    const cardWidth = 500;
+    const cardHeight = 520;
+    const cellSize = 60;
+    const gridSize = cellSize * 5;
+    const scoreSize = 54;
+    const totalBoardWidth = gridSize + 6 + scoreSize;
+    const totalBoardHeight = gridSize + 6 + scoreSize;
+    const gridX = x + Math.floor((cardWidth - totalBoardWidth) / 2);
+    const gridY = y + 96;
+
+    drawRoundedRect(ctx, x, y, cardWidth, cardHeight, 16);
+    ctx.fillStyle = 'rgba(10,16,26,0.55)';
+    ctx.fill();
+
+    ctx.font = "900 42px Roboto, sans-serif";
+    ctx.fillStyle = '#ecf0f1';
+    ctx.textAlign = 'left';
+    ctx.fillText(`${title}: ${score}`, x + 20, y + 56);
+
+    for (let row = 0; row < 5; row++) {
+        for (let col = 0; col < 5; col++) {
+            const idx = row * 5 + col;
+            const letter = grid[idx] || '';
+            const cx = gridX + col * cellSize;
+            const cy = gridY + row * cellSize;
+
+            ctx.fillStyle = '#333';
+            ctx.fillRect(cx + 2, cy + 2, cellSize - 4, cellSize - 4);
+
+            if (letter) {
+                ctx.fillStyle = '#ecf0f1';
+                ctx.font = "900 44px Roboto, sans-serif";
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(letter, cx + cellSize / 2, cy + cellSize / 2 + 1);
+            }
+        }
+    }
+
+    for (let r = 0; r < 5; r++) {
+        let rowStr = '';
+        for (let c = 0; c < 5; c++) rowStr += grid[r * 5 + c];
+        const rowScore = getLineScore(rowStr);
+        const sx = gridX + gridSize + 6;
+        const sy = gridY + r * cellSize + 2;
+
+        ctx.fillStyle = '#222';
+        ctx.fillRect(sx, sy, scoreSize - 4, cellSize - 4);
+        ctx.fillStyle = '#00d2d3';
+        ctx.font = "900 28px Roboto, sans-serif";
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(rowScore > 0 ? String(rowScore) : '-', sx + (scoreSize - 4) / 2, sy + (cellSize - 4) / 2 + 1);
+    }
+
+    for (let c = 0; c < 5; c++) {
+        let colStr = '';
+        for (let r = 0; r < 5; r++) colStr += grid[r * 5 + c];
+        const colScore = getLineScore(colStr);
+        const sx = gridX + c * cellSize + 2;
+        const sy = gridY + gridSize + 6;
+
+        ctx.fillStyle = '#222';
+        ctx.fillRect(sx, sy, cellSize - 4, scoreSize - 4);
+        ctx.fillStyle = '#00d2d3';
+        ctx.font = "900 28px Roboto, sans-serif";
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(colScore > 0 ? String(colScore) : '-', sx + (cellSize - 4) / 2, sy + (scoreSize - 4) / 2 + 1);
+    }
+
+    const words = getScoringWords(grid);
+    words.forEach((word) => {
+        const strokeW = 5;
+        const ox = gridX + (word.c * cellSize) + 5;
+        const oy = gridY + (word.r * cellSize) + 5;
+        const ow = (word.type === 'row' ? word.len * cellSize : cellSize) - 10;
+        const oh = (word.type === 'col' ? word.len * cellSize : cellSize) - 10;
+
+        drawRoundedRect(ctx, ox, oy, ow, oh, Math.max(12, cellSize * 0.28));
+        ctx.lineWidth = strokeW;
+        const lineColor = word.type === 'row' ? '#2ecc71' : '#00d2d3';
+        ctx.strokeStyle = lineColor;
+        ctx.shadowColor = lineColor;
+        ctx.shadowBlur = 10;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+    });
+}
+
+async function createDailyResultCardBlob() {
+    const canvas = renderDailyResultCardCanvas();
+    return await new Promise((resolve) => {
+        canvas.toBlob((blob) => resolve(blob), 'image/png');
+    });
+}
+
+function renderDailyResultCardCanvas() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200;
+    canvas.height = 1400;
+    const ctx = canvas.getContext('2d');
+
+    const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+    grad.addColorStop(0, '#0f1d35');
+    grad.addColorStop(1, '#11284f');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    drawRoundedRect(ctx, 70, 70, 1060, 1260, 24);
+    ctx.fillStyle = 'rgba(7,12,20,0.4)';
+    ctx.fill();
+
+    ctx.fillStyle = '#00d2d3';
+    ctx.font = "900 68px Roboto, sans-serif";
+    ctx.textAlign = 'center';
+    ctx.fillText('LETTERDUEL DAILY', 600, 165);
+
+    const dateLabel = currentDailyDateKey || getUtcDateKey();
+    ctx.fillStyle = '#ecf0f1';
+    ctx.font = "700 38px Roboto, sans-serif";
+    ctx.fillText(dateLabel, 600, 220);
+
+    const myScore = lastDailyResultPayload ? lastDailyResultPayload.playerScore : calculatePoints(myGrid);
+    const aiScore = lastDailyResultPayload ? lastDailyResultPayload.aiScore : calculatePoints(opponentGrid);
+    const won = lastDailyResultPayload ? lastDailyResultPayload.won : (myScore > aiScore);
+
+    ctx.fillStyle = '#ecf0f1';
+    ctx.font = "900 88px Roboto, sans-serif";
+    ctx.fillText(`JIJ ${myScore}  •  AI ${aiScore}`, 600, 320);
+
+    ctx.font = "900 64px Roboto, sans-serif";
+    ctx.fillStyle = won ? '#2ecc71' : '#ff4757';
+    ctx.fillText(won ? 'GEWONNEN' : 'VERLOREN', 600, 400);
+
+    drawDailyGridCard(ctx, myGrid, 60, 470, 'Jij', myScore);
+    drawDailyGridCard(ctx, opponentGrid, 640, 470, 'Daily AI', aiScore);
+
+    ctx.fillStyle = '#ecf0f1';
+    ctx.font = "700 34px Roboto, sans-serif";
+    ctx.fillText(`Speler: ${myUsername || 'Player'}`, 600, 1160);
+    ctx.font = "700 30px Roboto, sans-serif";
+    ctx.fillText('Speel vandaag op letterduel.pages.dev', 600, 1230);
+
+    return canvas;
+}
+
+async function downloadDailyResultCard() {
+    if (gameMode !== 'daily') {
+        showFlashMessage('Daily', 'Alleen beschikbaar na Daily match');
+        return;
+    }
+
+    const canvas = renderDailyResultCardCanvas();
+    const link = document.createElement('a');
+    const filenameDate = currentDailyDateKey || getUtcDateKey();
+    link.download = `letterduel-daily-${filenameDate}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+}
+
+async function shareDailyResult(channel) {
+    if (gameMode !== 'daily') {
+        showFlashMessage('Daily', 'Start eerst een Daily match');
+        return;
+    }
+
+    const text = createDailyShareText();
+    const encodedText = encodeURIComponent(text);
+    const rawPageUrl = window.location.origin + window.location.pathname;
+    const pageUrl = encodeURIComponent(rawPageUrl);
+
+    if (channel === 'x') {
+        await downloadDailyResultCard();
+        showFlashMessage('Twitter', 'Afbeelding gedownload, voeg hem toe in je tweet', 2600);
+        window.open(`https://twitter.com/intent/tweet?text=${encodedText}&url=${pageUrl}`, '_blank');
+        return;
+    }
+    if (channel === 'facebook') {
+        await downloadDailyResultCard();
+        showFlashMessage('Facebook', 'Afbeelding gedownload, voeg hem toe in je post', 2600);
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${pageUrl}&quote=${encodedText}`, '_blank');
+        return;
+    }
+    if (channel === 'whatsapp') {
+        await downloadDailyResultCard();
+        showFlashMessage('WhatsApp', 'Afbeelding gedownload, voeg hem toe in WhatsApp', 2600);
+        window.open(`https://wa.me/?text=${encodeURIComponent(text + '\n' + rawPageUrl)}`, '_blank');
+    }
+}
+
 function finishGame() {
     const myScore = calculatePoints(myGrid);
     const oppScore = calculatePoints(opponentGrid);
     
-    // --- SAVE HIGHSCORE ---
-    if (myScore > 25) {
-        const { addDoc, collection } = window.firebaseFuncs;
-        addDoc(collection(window.db, "highscores"), {
-            name: myUsername || "Player", // Gebruik de gekozen naam!
-            score: myScore,
-            grid: myGrid,
-            timestamp: new Date(),
-            mode: isSinglePlayer ? 'SP' : 'MP'
-        }).then(() => {
-            clearHighscoreCache(); // Force refresh bij volgende keer openen
-        }).catch(e => console.error("Kon score niet opslaan:", e));
+    if (gameMode === 'daily') {
+        saveDailyResult(myScore, oppScore).catch((e) => {
+            if (String(e && e.message) === 'daily-already-played') {
+                showFlashMessage('Daily', 'Resultaat was al opgeslagen');
+                return;
+            }
+            console.error('Daily resultaat opslaan mislukt:', e);
+        });
+    } else {
+        // --- SAVE HIGHSCORE ---
+        if (myScore > 25) {
+            const { addDoc, collection } = window.firebaseFuncs;
+            addDoc(collection(window.db, "highscores"), {
+                name: myUsername || "Player",
+                score: myScore,
+                grid: myGrid,
+                timestamp: new Date(),
+                mode: isSinglePlayer ? 'SP' : 'MP'
+            }).then(() => {
+                clearHighscoreCache();
+            }).catch(e => console.error("Kon score niet opslaan:", e));
+        }
     }
 
     document.getElementById('my-final-score').innerText = myScore;
@@ -1958,6 +2543,12 @@ function finishGame() {
     else { winnerTxt.innerText = "🤝 GELIJKSPEL"; winnerTxt.style.color = "#ecf0f1"; }
     renderMiniGridWithOutlines(myGrid, 'my-mini-grid', 'my-row-scores', 'my-col-scores');
     renderMiniGridWithOutlines(opponentGrid, 'opp-mini-grid', 'opp-row-scores', 'opp-col-scores');
+
+    const dailyShareControls = document.getElementById('daily-share-controls');
+    if (dailyShareControls) {
+        dailyShareControls.style.display = gameMode === 'daily' ? 'block' : 'none';
+    }
+
     document.getElementById('result-modal').style.display = 'flex';
     keyboard.style.display = 'none';
 }
@@ -2014,6 +2605,10 @@ function getWeightedLetter() {
 
 async function handleScrambleStart() {
     if (isAiProcessing) return;
+    if (gameMode === 'daily') {
+        showFlashMessage("DAILY", "Scramble staat uit in Daily");
+        return;
+    }
 
     const filledCount = myGrid.filter(c => c !== "").length;
     if (filledCount > 2) { showFlashMessage("TE LAAT", "Scramble werkt alleen bij start!", 2000); return; }
