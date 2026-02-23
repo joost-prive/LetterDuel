@@ -2439,6 +2439,11 @@ function createDailyShareText() {
     const header = `LetterDuel Daily ${dateKey} • ${resultWord} • Ik ${playerScore} - AI ${aiScore}`;
     if (gridCodesRaw.length !== 25 || rowScores.length !== 5 || colScores.length !== 5) return header;
 
+    const formatCellScore = (value) => {
+        const safe = Number.isFinite(value) ? String(value) : '-';
+        return safe.length === 1 ? ` ${safe}` : safe;
+    };
+
     const lines = [header, ''];
     for (let r = 0; r < 5; r++) {
         let line = '';
@@ -2446,10 +2451,9 @@ function createDailyShareText() {
             const code = gridCodesRaw[(r * 5) + c];
             line += colorMap[code] || colorMap.N;
         }
-        lines.push(`${line} ${rowScores[r]}`);
+        lines.push(`${line} ${formatCellScore(rowScores[r])}`);
     }
-    lines.push(`Rijen→ ${rowScores.join(' ')}`);
-    lines.push(`Kolom↓ ${colScores.join(' ')}`);
+    lines.push(colScores.map(formatCellScore).join(''));
 
     return lines.join('\n');
 }
