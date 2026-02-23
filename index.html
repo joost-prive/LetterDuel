@@ -2405,7 +2405,7 @@ async function saveDailyResult(myScore, oppScore) {
     lastDailyResultPayload = payload;
 }
 
-function createDailyShareText() {
+function createDailyShareText(channel) {
     const dateKey = lastDailyResultPayload?.dateKey || currentDailyDateKey || getUtcDateKey();
     const playerScore = Number.isFinite(lastDailyResultPayload?.playerScore)
         ? lastDailyResultPayload.playerScore
@@ -2436,12 +2436,40 @@ function createDailyShareText() {
         .map(v => Number(v))
         .filter(v => Number.isFinite(v));
 
-    const header = `LetterDuel Daily ${dateKey} • ${resultWord} • Ik ${playerScore} - AI ${aiScore}`;
+    const attemptTag = '';
+    const header = `LetterDuel Daily ${dateKey} • ${resultWord} • Ik ${playerScore} - AI ${aiScore}${attemptTag}`;
     if (gridCodesRaw.length !== 25 || rowScores.length !== 5 || colScores.length !== 5) return header;
+
+    const toFullWidthDigits = (input) => {
+        return String(input).replace(/[0-9]/g, (digit) => {
+            return String.fromCharCode(digit.charCodeAt(0) + 65248);
+        });
+    };
+
+    const toSuperscriptDigits = (input) => {
+        const superscriptMap = {
+            '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+            '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹'
+        };
+        return String(input).split('').map(c => superscriptMap[c] || c).join('');
+    };
 
     const formatCellScore = (value) => {
         const safe = Number.isFinite(value) ? String(value) : '-';
-        return safe.length === 1 ? ` ${safe}` : safe;
+        return safe;
+    };
+
+    const formatFullWidthScore = (value) => {
+        const safe = Number.isFinite(value) ? String(value) : '-';
+        const fullWidth = toFullWidthDigits(safe);
+        // Single-digit: two spaces + fullwidth (e.g. "  ５")
+        // Double-digit: fullwidth only (e.g. "１５")
+        return fullWidth.length === 1 ? `  ${fullWidth}` : fullWidth;
+    };
+
+    const formatSuperscriptScore = (value) => {
+        const safe = Number.isFinite(value) ? String(value) : '-';
+        return toSuperscriptDigits(safe);
     };
 
     const lines = [header, ''];
@@ -2453,7 +2481,8 @@ function createDailyShareText() {
         }
         lines.push(`${line} ${formatCellScore(rowScores[r])}`);
     }
-    lines.push(colScores.map(formatCellScore).join(''));
+    const bottomScoresLine = ' ' + colScores.map(formatSuperscriptScore).join('  |  ');
+    lines.push(bottomScoresLine);
 
     return lines.join('\n');
 }
@@ -2619,7 +2648,7 @@ async function shareDailyResult(channel) {
         return;
     }
 
-    const text = createDailyShareText();
+    const text = createDailyShareText(channel);
     const encodedText = encodeURIComponent(text);
 
     if (navigator.share && channel === 'native') {
