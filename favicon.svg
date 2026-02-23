@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect x="5" y="5" width="42" height="42" rx="6" fill="#3498db"/>
+  <text x="26" y="36" font-family="Roboto, Arial, sans-serif" font-weight="900" font-size="24" fill="#ffffff" text-anchor="middle">L</text>
+  <rect x="53" y="5" width="42" height="42" rx="6" fill="#ff4757"/>
+  <text x="74" y="36" font-family="Roboto, Arial, sans-serif" font-weight="900" font-size="24" fill="#ffffff" text-anchor="middle">D</text>
+  <rect x="5" y="53" width="42" height="42" rx="6" fill="#ff4757"/>
+  <rect x="53" y="53" width="42" height="42" rx="6" fill="#3498db"/>
+</svg>
