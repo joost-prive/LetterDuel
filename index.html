@@ -712,7 +712,7 @@ function getShareHintText() {
     return 'Voeg je score-image toe met Ctrl+V.';
 }
 
-async function copyDailyScoreImageToClipboard(payloadOverride = null, textValue = '') {
+async function copyDailyScoreImageToClipboard(payloadOverride = null, textValue = '', includeText = true) {
     if (!(window.isSecureContext && navigator.clipboard && window.ClipboardItem)) {
         return false;
     }
@@ -725,7 +725,7 @@ async function copyDailyScoreImageToClipboard(payloadOverride = null, textValue 
         };
 
         const safeText = String(textValue || '').trim();
-        if (safeText) {
+        if (includeText && safeText) {
             clipboardPayload['text/plain'] = new Blob([safeText], { type: 'text/plain' });
         }
 
@@ -3235,7 +3235,8 @@ async function shareDailyResult(channel, payloadOverride = null) {
         const text = createDailyShareText(textChannel);
         const encodedText = encodeURIComponent(text);
 
-        const copiedImage = await copyDailyScoreImageToClipboard(payloadOverride, text);
+        const includeTextInClipboard = channel === 'x';
+        const copiedImage = await copyDailyScoreImageToClipboard(payloadOverride, text, includeTextInClipboard);
 
         const channelLabel = channel === 'x' ? 'X' : (channel === 'facebook' ? 'Facebook' : 'WhatsApp');
         if (copiedImage) {
@@ -3245,7 +3246,7 @@ async function shareDailyResult(channel, payloadOverride = null) {
                 showFlashMessage('✅ Score-image gekopieerd!', `Open ${channelLabel} en plak met Ctrl+V.`, 3400);
             }
         } else {
-            if (navigator.clipboard && navigator.clipboard.writeText) {
+            if (channel === 'x' && navigator.clipboard && navigator.clipboard.writeText) {
                 try {
                     await navigator.clipboard.writeText(text);
                     showFlashMessage(channelLabel, 'Image kopiëren lukt niet. Tekst is wel gekopieerd.', 3200);
@@ -3253,7 +3254,7 @@ async function shareDailyResult(channel, payloadOverride = null) {
                     showFlashMessage(channelLabel, 'Kopiëren mislukt op dit toestel/browser. Deel via screenshot.', 3200);
                 }
             } else {
-                showFlashMessage(channelLabel, 'Kopiëren mislukt op dit toestel/browser. Deel via screenshot.', 3200);
+                showFlashMessage(channelLabel, 'Image kopiëren lukt hier niet. Gebruik een screenshot of upload handmatig.', 3300);
             }
         }
 
