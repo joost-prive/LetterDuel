@@ -3222,7 +3222,8 @@ async function shareDailyResult(channel, payloadOverride = null) {
     }
 
     try {
-        const text = createDailyShareText(channel);
+        const textChannel = (channel === 'facebook' || channel === 'whatsapp') ? 'x' : channel;
+        const text = createDailyShareText(textChannel);
         const encodedText = encodeURIComponent(text);
 
         const copiedImage = await copyDailyScoreImageToClipboard(payloadOverride);
@@ -3235,7 +3236,16 @@ async function shareDailyResult(channel, payloadOverride = null) {
                 showFlashMessage('✅ Score-image gekopieerd!', `Open ${channelLabel} en plak met Ctrl+V.`, 3400);
             }
         } else {
-            showFlashMessage(channelLabel, 'Kopiëren van score-image lukt hier niet. Deel eventueel met een screenshot.', 3200);
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                try {
+                    await navigator.clipboard.writeText(text);
+                    showFlashMessage(channelLabel, 'Image kopiëren lukt niet. Tekst is wel gekopieerd.', 3200);
+                } catch {
+                    showFlashMessage(channelLabel, 'Kopiëren mislukt op dit toestel/browser. Deel via screenshot.', 3200);
+                }
+            } else {
+                showFlashMessage(channelLabel, 'Kopiëren mislukt op dit toestel/browser. Deel via screenshot.', 3200);
+            }
         }
 
         if (channel === 'x') {
@@ -3256,11 +3266,12 @@ async function shareDailyResult(channel, payloadOverride = null) {
         }
 
         if (channel === 'facebook') {
-            window.open('https://www.facebook.com/', '_blank');
+            const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent('https://letterduel.net')}&quote=${encodedText}`;
+            window.open(fbUrl, '_blank');
             return;
         }
         if (channel === 'whatsapp') {
-            window.open(`https://wa.me/?text=${encodedText}`, '_blank');
+            window.open(`https://api.whatsapp.com/send?text=${encodedText}`, '_blank');
         }
     } finally {
         if (payloadOverride) {
