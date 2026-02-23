@@ -712,7 +712,7 @@ function getShareHintText() {
     return 'Voeg je score-image toe met Ctrl+V.';
 }
 
-async function copyDailyScoreImageToClipboard(payloadOverride = null) {
+async function copyDailyScoreImageToClipboard(payloadOverride = null, textValue = '') {
     if (!(window.isSecureContext && navigator.clipboard && window.ClipboardItem)) {
         return false;
     }
@@ -720,8 +720,17 @@ async function copyDailyScoreImageToClipboard(payloadOverride = null) {
     try {
         const blob = await createDailyResultCardBlob(payloadOverride);
         if (!blob) return false;
+        const clipboardPayload = {
+            'image/png': blob
+        };
+
+        const safeText = String(textValue || '').trim();
+        if (safeText) {
+            clipboardPayload['text/plain'] = new Blob([safeText], { type: 'text/plain' });
+        }
+
         await navigator.clipboard.write([
-            new ClipboardItem({ 'image/png': blob })
+            new ClipboardItem(clipboardPayload)
         ]);
         return true;
     } catch (err) {
@@ -3226,7 +3235,7 @@ async function shareDailyResult(channel, payloadOverride = null) {
         const text = createDailyShareText(textChannel);
         const encodedText = encodeURIComponent(text);
 
-        const copiedImage = await copyDailyScoreImageToClipboard(payloadOverride);
+        const copiedImage = await copyDailyScoreImageToClipboard(payloadOverride, text);
 
         const channelLabel = channel === 'x' ? 'X' : (channel === 'facebook' ? 'Facebook' : 'WhatsApp');
         if (copiedImage) {
@@ -3266,8 +3275,7 @@ async function shareDailyResult(channel, payloadOverride = null) {
         }
 
         if (channel === 'facebook') {
-            const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent('https://letterduel.net')}&quote=${encodedText}`;
-            window.open(fbUrl, '_blank');
+            window.open('https://www.facebook.com/', '_blank');
             return;
         }
         if (channel === 'whatsapp') {
