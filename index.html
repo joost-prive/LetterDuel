@@ -94,8 +94,20 @@
         .slogan { font-size: 0.75rem; color: var(--secondary); font-weight: 500; margin-top: 4px; text-transform: uppercase; letter-spacing: 1px; }
 
         /* SCREENS */
-        #start-screen { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-gradient); z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+        #start-screen { position: fixed; inset: 0; background: var(--bg-gradient); z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; min-height: 100dvh; overflow-y: auto; }
         .menu-card { background: var(--surface); padding: 40px 30px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); box-shadow: var(--shadow); width: 100%; max-width: 350px; display: flex; flex-direction: column; gap: 20px; animation: popIn 0.4s ease-out; position: relative; }
+
+        @media (max-width: 700px) {
+            #start-screen {
+                justify-content: flex-start;
+                padding-top: calc(env(safe-area-inset-top, 0px) + 12px);
+                padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+            }
+            .menu-card {
+                margin-top: 8px;
+                margin-bottom: 8px;
+            }
+        }
         @keyframes popIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         .big-logo { width: 80px; height: 80px; margin: 0 auto 10px auto; display: block; }
         .menu-title { font-size: 1.8rem; font-weight: 900; color: var(--text-main); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;}
@@ -318,6 +330,19 @@
         }
 
         #view-grid-comparison { gap: 10px; }
+        #view-grid-modal { align-items: flex-start; }
+        #view-grid-modal .modal-content { margin: 10px auto 14px; }
+        #view-grid-modal .close-modal {
+            position: sticky;
+            top: 0;
+            right: 0;
+            float: right;
+            z-index: 4;
+            background: rgba(30, 39, 46, 0.9);
+            border-radius: 999px;
+            padding: 0 8px;
+            margin-bottom: 6px;
+        }
         @media (min-width: 900px) {
             #view-grid-comparison {
                 gap: 26px;
@@ -685,6 +710,24 @@ function getShareHintText() {
         return 'Klik in het berichtvak en kies Plakken om je score-image toe te voegen.';
     }
     return 'Voeg je score-image toe met Ctrl+V.';
+}
+
+async function copyDailyScoreImageToClipboard(payloadOverride = null) {
+    if (!(window.isSecureContext && navigator.clipboard && window.ClipboardItem)) {
+        return false;
+    }
+
+    try {
+        const blob = await createDailyResultCardBlob(payloadOverride);
+        if (!blob) return false;
+        await navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': blob })
+        ]);
+        return true;
+    } catch (err) {
+        console.warn('Scorekaart kopiëren mislukt:', err);
+        return false;
+    }
 }
 
 function updateShareHintText() {
@@ -2824,7 +2867,8 @@ function createDailyShareText(channel) {
             `Daily ${dateKey}`,
             `🧠 My score: ${playerScore}`,
             `🤖 AI score: ${aiScore}`,
-            '#letterduel #daily'
+            '#letterduel #daily',
+            ''
         ];
         return lines.join('\n');
     }
@@ -3181,32 +3225,20 @@ async function shareDailyResult(channel, payloadOverride = null) {
         const text = createDailyShareText(channel);
         const encodedText = encodeURIComponent(text);
 
-        if (channel === 'x') {
-            let copiedImage = false;
-            try {
-                if (window.isSecureContext && navigator.clipboard && window.ClipboardItem) {
-                    const blob = await createDailyResultCardBlob(payloadOverride);
-                    if (blob) {
-                        await navigator.clipboard.write([
-                            new ClipboardItem({ 'image/png': blob })
-                        ]);
-                        copiedImage = true;
-                    }
-                }
-            } catch (copyErr) {
-                console.warn('Scorekaart kopiëren mislukt:', copyErr);
-            }
+        const copiedImage = await copyDailyScoreImageToClipboard(payloadOverride);
 
-            if (copiedImage) {
-                if (isLikelyMobileClient()) {
-                    showFlashMessage('✅ Scorekaart gekopieerd!', 'Open X, tik in het berichtvak en kies Plakken om je scorekaart toe te voegen.', 4200);
-                } else {
-                    showFlashMessage('✅ Scorekaart gekopieerd!', 'Open X en druk Ctrl+V om je scorekaart direct te plakken.', 3800);
-                }
+        const channelLabel = channel === 'x' ? 'X' : (channel === 'facebook' ? 'Facebook' : 'WhatsApp');
+        if (copiedImage) {
+            if (isLikelyMobileClient()) {
+                showFlashMessage('✅ Score-image gekopieerd!', `Open ${channelLabel} en kies Plakken in het berichtvak.`, 3600);
             } else {
-                showFlashMessage('X delen', 'Kopiëren van de scorekaart lukt hier niet. Gebruik Download scorekaart en upload handmatig op X.', 3600);
+                showFlashMessage('✅ Score-image gekopieerd!', `Open ${channelLabel} en plak met Ctrl+V.`, 3400);
             }
+        } else {
+            showFlashMessage(channelLabel, 'Kopiëren van score-image lukt hier niet. Deel eventueel met een screenshot.', 3200);
+        }
 
+        if (channel === 'x') {
             window.open(`https://twitter.com/intent/tweet?text=${encodedText}`, '_blank');
             return;
         }
@@ -3224,13 +3256,6 @@ async function shareDailyResult(channel, payloadOverride = null) {
         }
 
         if (channel === 'facebook') {
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(text).then(() => {
-                    showFlashMessage('Facebook', 'Tekst gekopieerd, plak in je post', 2800);
-                }).catch(() => {
-                    showFlashMessage('Facebook', 'Kopieer de tekst handmatig uit het resultaatvenster', 3000);
-                });
-            }
             window.open('https://www.facebook.com/', '_blank');
             return;
         }
