@@ -209,7 +209,7 @@
         .mini-cell { background: #333; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: bold; color: #ccc; border-radius: 2px; }
         .mini-score-cell { background: #222; color: var(--secondary); font-weight: 900; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; border: 1px solid #333; border-radius: 2px; width: 100%; height: 100%; }
         .word-outline { position: absolute; box-sizing: border-box; border-radius: 999px; pointer-events: none; z-index: 10; }
-        .outline-row { border: 2px solid var(--easy); box-shadow: 0 0 8px var(--easy); }
+        .outline-row { border: 2px solid #2ecc71; box-shadow: 0 0 8px #2ecc71; }
         .outline-col { border: 2px solid var(--secondary); box-shadow: 0 0 8px var(--secondary); }
 
         #checker-input { font-size: 1.5rem; padding: 15px; background: #111; border: 2px solid #444; border-radius: 4px; width: 80%; text-transform: uppercase; text-align: center; margin-bottom: 15px; font-weight: 800; color: #fff; outline: none; }
@@ -489,8 +489,7 @@
                 <button class="mode-btn btn-online" style="padding:10px 12px; font-size:0.8rem;" onclick="shareDailyResult('facebook')">Facebook</button>
                 <button class="mode-btn btn-online" style="padding:10px 12px; font-size:0.8rem;" onclick="shareDailyResult('whatsapp')">WhatsApp</button>
             </div>
-            <div style="font-size:0.75rem; color:#9fb3c8; margin-bottom:8px;">Download je scorekaart om te delen op social media.</div>
-            <button class="action-btn" style="width:88%; display:block; margin:0 auto 14px;" onclick="downloadDailyResultCard()">📥 Download scorekaart</button>
+            <div id="daily-share-hint" style="font-size:0.72rem; color:#8ea3b7; margin:2px 0 10px; line-height:1.35;"></div>
         </div>
         <button class="action-btn" style="margin-top:8px;" onclick="location.href = window.location.pathname">TERUG NAAR MENU</button>
     </div>
@@ -555,6 +554,7 @@
                 <button class="mode-btn btn-online" style="padding:10px 12px; font-size:0.8rem;" onclick="shareViewedDailyResult('facebook')">Facebook</button>
                 <button class="mode-btn btn-online" style="padding:10px 12px; font-size:0.8rem;" onclick="shareViewedDailyResult('whatsapp')">WhatsApp</button>
             </div>
+            <div id="view-share-hint" style="font-size:0.72rem; color:#8ea3b7; margin-top:8px; line-height:1.35;"></div>
         </div>
     </div>
 </div>
@@ -675,11 +675,32 @@ const gameUi = document.getElementById('game-ui');
 const keyboard = document.getElementById('virtual-keyboard');
 const winChanceContainer = document.getElementById('win-chance-container');
 
+function isLikelyMobileClient() {
+    return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '')
+        || ((navigator.maxTouchPoints || 0) > 1 && window.matchMedia && window.matchMedia('(max-width: 900px)').matches);
+}
+
+function getShareHintText() {
+    if (isLikelyMobileClient()) {
+        return 'Klik in het berichtvak en kies Plakken om je score-image toe te voegen.';
+    }
+    return 'Voeg je score-image toe met Ctrl+V.';
+}
+
+function updateShareHintText() {
+    const text = getShareHintText();
+    const dailyHint = document.getElementById('daily-share-hint');
+    const viewHint = document.getElementById('view-share-hint');
+    if (dailyHint) dailyHint.textContent = text;
+    if (viewHint) viewHint.textContent = text;
+}
+
 window.onload = () => {
     createGridUI();
     updateProfileDisplay(); 
     const debugBtn = document.getElementById('debug-btn');
     if (debugBtn) debugBtn.style.display = isDebugMode ? 'inline-block' : 'none';
+    updateShareHintText();
     updateGameControlButtons();
     if (window.pendingInviteId) {
         window.checkAndJoin();
@@ -2904,24 +2925,45 @@ function drawDailyGridCard(ctx, grid, x, y, title, score) {
     ctx.fillText(`${title}: ${score}`, x + 20, y + 56);
 
     const snapshot = buildShareGridSnapshot(grid);
-    const tileColors = {
-        N: '#3a3f4b',
-        H: '#2ecc71',
-        V: '#00a8ff',
-        B: '#f1c40f'
-    };
+    const words = getScoringWords(grid);
 
     for (let row = 0; row < 5; row++) {
         for (let col = 0; col < 5; col++) {
             const idx = row * 5 + col;
-            const code = snapshot.colorCodes[idx];
             const cx = gridX + col * cellSize;
             const cy = gridY + row * cellSize;
+            const letter = String(grid[idx] || '').toUpperCase();
 
-            ctx.fillStyle = tileColors[code] || tileColors.N;
+            ctx.fillStyle = '#2e3440';
             ctx.fillRect(cx + 2, cy + 2, cellSize - 4, cellSize - 4);
+            ctx.strokeStyle = '#3f4a59';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(cx + 2, cy + 2, cellSize - 4, cellSize - 4);
+
+            if (letter) {
+                ctx.fillStyle = '#ecf0f1';
+                ctx.font = '900 30px Roboto, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(letter, cx + (cellSize / 2), cy + (cellSize / 2) + 1);
+            }
         }
     }
+
+    words.forEach((word) => {
+        const outlineX = gridX + (word.c * cellSize) + 3;
+        const outlineY = gridY + (word.r * cellSize) + 3;
+        const outlineW = word.type === 'row' ? (word.len * cellSize) - 6 : cellSize - 6;
+        const outlineH = word.type === 'col' ? (word.len * cellSize) - 6 : cellSize - 6;
+
+        ctx.strokeStyle = word.type === 'row' ? '#2ecc71' : '#00d2d3';
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = word.type === 'row' ? 'rgba(46,204,113,0.65)' : 'rgba(0,210,211,0.65)';
+        ctx.lineWidth = 4;
+        drawRoundedRect(ctx, outlineX, outlineY, outlineW, outlineH, 16);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+    });
 
     for (let r = 0; r < 5; r++) {
         const rowScore = snapshot.rowScores[r] || 0;
@@ -2954,10 +2996,104 @@ function drawDailyGridCard(ctx, grid, x, y, title, score) {
 }
 
 async function createDailyResultCardBlob(sourcePayload = null) {
-    const canvas = renderDailyResultCardCanvas(sourcePayload);
+    const canvas = renderDailyShareGridCanvas(sourcePayload);
     return await new Promise((resolve) => {
         canvas.toBlob((blob) => resolve(blob), 'image/png');
     });
+}
+
+function renderDailyShareGridCanvas(sourcePayload = null) {
+    const sourceGrid = Array.isArray(sourcePayload?.playerGrid) ? sourcePayload.playerGrid : myGrid;
+
+    const cellSize = 66;
+    const scoreSize = 56;
+    const gap = 6;
+    const gridSize = cellSize * 5;
+    const boardWidth = gridSize + gap + scoreSize;
+    const boardHeight = gridSize + gap + scoreSize;
+    const padding = 26;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = boardWidth + (padding * 2);
+    canvas.height = boardHeight + (padding * 2);
+
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#0d1727';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const gridX = padding;
+    const gridY = padding;
+
+    const snapshot = buildShareGridSnapshot(sourceGrid);
+    const words = getScoringWords(sourceGrid);
+
+    for (let row = 0; row < 5; row++) {
+        for (let col = 0; col < 5; col++) {
+            const idx = row * 5 + col;
+            const cx = gridX + col * cellSize;
+            const cy = gridY + row * cellSize;
+            const letter = String(sourceGrid[idx] || '').toUpperCase();
+
+            ctx.fillStyle = '#2e3440';
+            ctx.fillRect(cx + 2, cy + 2, cellSize - 4, cellSize - 4);
+            ctx.strokeStyle = '#3f4a59';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(cx + 2, cy + 2, cellSize - 4, cellSize - 4);
+
+            if (letter) {
+                ctx.fillStyle = '#ecf0f1';
+                ctx.font = '900 34px Roboto, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(letter, cx + (cellSize / 2), cy + (cellSize / 2) + 1);
+            }
+        }
+    }
+
+    words.forEach((word) => {
+        const outlineX = gridX + (word.c * cellSize) + 3;
+        const outlineY = gridY + (word.r * cellSize) + 3;
+        const outlineW = word.type === 'row' ? (word.len * cellSize) - 6 : cellSize - 6;
+        const outlineH = word.type === 'col' ? (word.len * cellSize) - 6 : cellSize - 6;
+
+        ctx.strokeStyle = word.type === 'row' ? '#2ecc71' : '#00d2d3';
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = word.type === 'row' ? 'rgba(46,204,113,0.65)' : 'rgba(0,210,211,0.65)';
+        ctx.lineWidth = 4;
+        drawRoundedRect(ctx, outlineX, outlineY, outlineW, outlineH, 16);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+    });
+
+    for (let r = 0; r < 5; r++) {
+        const rowScore = snapshot.rowScores[r] || 0;
+        const sx = gridX + gridSize + gap;
+        const sy = gridY + r * cellSize + 2;
+
+        ctx.fillStyle = '#222';
+        ctx.fillRect(sx, sy, scoreSize - 4, cellSize - 4);
+        ctx.fillStyle = '#00d2d3';
+        ctx.font = '900 30px Roboto, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(rowScore > 0 ? String(rowScore) : '-', sx + (scoreSize - 4) / 2, sy + (cellSize - 4) / 2 + 1);
+    }
+
+    for (let c = 0; c < 5; c++) {
+        const colScore = snapshot.colScores[c] || 0;
+        const sx = gridX + c * cellSize + 2;
+        const sy = gridY + gridSize + gap;
+
+        ctx.fillStyle = '#222';
+        ctx.fillRect(sx, sy, cellSize - 4, scoreSize - 4);
+        ctx.fillStyle = '#00d2d3';
+        ctx.font = '900 30px Roboto, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(colScore > 0 ? String(colScore) : '-', sx + (cellSize - 4) / 2, sy + (scoreSize - 4) / 2 + 1);
+    }
+
+    return canvas;
 }
 
 function renderDailyResultCardCanvas(sourcePayload = null) {
@@ -3062,10 +3198,7 @@ async function shareDailyResult(channel, payloadOverride = null) {
             }
 
             if (copiedImage) {
-                const isLikelyMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '')
-                    || ((navigator.maxTouchPoints || 0) > 1 && window.matchMedia && window.matchMedia('(max-width: 900px)').matches);
-
-                if (isLikelyMobile) {
+                if (isLikelyMobileClient()) {
                     showFlashMessage('✅ Scorekaart gekopieerd!', 'Open X, tik in het berichtvak en kies Plakken om je scorekaart toe te voegen.', 4200);
                 } else {
                     showFlashMessage('✅ Scorekaart gekopieerd!', 'Open X en druk Ctrl+V om je scorekaart direct te plakken.', 3800);
