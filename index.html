@@ -583,6 +583,7 @@ let currentDailyPuzzle = null;
 let dailyAiSequenceIndex = 0;
 let dailyGameFinished = false;
 let lastDailyResultPayload = null;
+const isDailyAttemptLimitEnabled = false;
 const isDebugMode = ['localhost', '127.0.0.1'].includes(window.location.hostname) || new URLSearchParams(window.location.search).get('debug') === '1';
 
 // Username Handling
@@ -969,13 +970,15 @@ async function startDailyMode() {
         const dateKey = getUtcDateKey();
 
         try {
-            const playedState = await hasPlayedDaily(dateKey, uid);
-            if (playedState.played) {
-                const result = playedState.data || {};
-                const score = result.playerScore ?? '-';
-                const wonText = result.won ? 'Gewonnen' : 'Verloren';
-                showFlashMessage('Daily al gespeeld', `${wonText} • Score ${score}`, 2600);
-                return;
+            if (isDailyAttemptLimitEnabled) {
+                const playedState = await hasPlayedDaily(dateKey, uid);
+                if (playedState.played) {
+                    const result = playedState.data || {};
+                    const score = result.playerScore ?? '-';
+                    const wonText = result.won ? 'Gewonnen' : 'Verloren';
+                    showFlashMessage('Daily al gespeeld', `${wonText} • Score ${score}`, 2600);
+                    return;
+                }
             }
 
             const puzzle = await getOrCreateDailyPuzzle(dateKey);
@@ -2262,6 +2265,73 @@ function getScoringWords(grid) {
     return highlights;
 }
 
+function buildShareGridSnapshot(grid) {
+    const rowUsage = Array(25).fill(false);
+    const colUsage = Array(25).fill(false);
+    const words = getScoringWords(grid);
+
+    words.forEach((word) => {
+        if (word.type === 'row') {
+            for (let offset = 0; offset < word.len; offset++) {
+                const idx = (word.r * 5) + (word.c + offset);
+                if (idx >= 0 && idx < 25) rowUsage[idx] = true;
+            }
+            return;
+        }
+
+        for (let offset = 0; offset < word.len; offset++) {
+            const idx = ((word.r + offset) * 5) + word.c;
+            if (idx >= 0 && idx < 25) colUsage[idx] = true;
+        }
+    });
+
+    const colorCodes = Array(25).fill('N');
+    for (let i = 0; i < 25; i++) {
+        if (rowUsage[i] && colUsage[i]) colorCodes[i] = 'B';
+        else if (rowUsage[i]) colorCodes[i] = 'H';
+        else if (colUsage[i]) colorCodes[i] = 'V';
+    }
+
+    const rowScores = [];
+    for (let r = 0; r < 5; r++) {
+        let rowStr = '';
+        for (let c = 0; c < 5; c++) rowStr += grid[r * 5 + c];
+        rowScores.push(getLineScore(rowStr));
+    }
+
+    const colScores = [];
+    for (let c = 0; c < 5; c++) {
+        let colStr = '';
+        for (let r = 0; r < 5; r++) colStr += grid[r * 5 + c];
+        colScores.push(getLineScore(colStr));
+    }
+
+    return {
+        colorCodes,
+        rowScores,
+        colScores,
+        serializedColorCodes: colorCodes.join(''),
+        serializedRowScores: rowScores.join(','),
+        serializedColScores: colScores.join(',')
+    };
+}
+
+function getPublicShareBaseUrl() {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+        return 'https://letterduel.net';
+    }
+    return window.location.origin;
+}
+
+function buildDailySharePath(dateKey, uid) {
+    return `/share/daily/${dateKey}/${uid}`;
+}
+
+function buildDailyShareUrl(dateKey, uid) {
+    return `${getPublicShareBaseUrl()}${buildDailySharePath(dateKey, uid)}`;
+}
+
 async function saveDailyResult(myScore, oppScore) {
     if (gameMode !== 'daily' || !currentDailyDateKey || !window.currentUser) return;
     if (dailyGameFinished) return;
@@ -2269,6 +2339,11 @@ async function saveDailyResult(myScore, oppScore) {
     const { doc, runTransaction } = window.firebaseFuncs;
     const uid = window.currentUser.uid;
     const resultRef = doc(window.db, 'daily_results', currentDailyDateKey, 'entries', uid);
+    const shareDocRef = doc(window.db, 'daily_shares', `${currentDailyDateKey}_${uid}`);
+    const sharePath = buildDailySharePath(currentDailyDateKey, uid);
+    const shareUrl = buildDailyShareUrl(currentDailyDateKey, uid);
+    const shareSnapshot = buildShareGridSnapshot(myGrid);
+
     const payload = {
         uid,
         name: myUsername || 'Player',
@@ -2277,16 +2352,54 @@ async function saveDailyResult(myScore, oppScore) {
         aiScore: oppScore,
         won: myScore > oppScore,
         playedAt: new Date(),
-        mode: 'DAILY'
+        mode: 'DAILY',
+        sharePath,
+        shareUrl,
+        shareGridColors: shareSnapshot.serializedColorCodes,
+        shareRowScores: shareSnapshot.serializedRowScores,
+        shareColScores: shareSnapshot.serializedColScores
     };
 
-    await runTransaction(window.db, async (transaction) => {
-        const existing = await transaction.get(resultRef);
-        if (existing.exists()) {
-            throw new Error('daily-already-played');
-        }
-        transaction.set(resultRef, payload);
-    });
+    if (isDailyAttemptLimitEnabled) {
+        await runTransaction(window.db, async (transaction) => {
+            const existing = await transaction.get(resultRef);
+            if (existing.exists()) {
+                throw new Error('daily-already-played');
+            }
+            transaction.set(resultRef, payload);
+            transaction.set(shareDocRef, {
+                uid,
+                dateKey: currentDailyDateKey,
+                name: myUsername || 'Player',
+                playerScore: myScore,
+                aiScore: oppScore,
+                won: myScore > oppScore,
+                sharePath,
+                shareUrl,
+                shareGridColors: shareSnapshot.serializedColorCodes,
+                shareRowScores: shareSnapshot.serializedRowScores,
+                shareColScores: shareSnapshot.serializedColScores,
+                updatedAt: new Date()
+            });
+        });
+    } else {
+        const { setDoc } = window.firebaseFuncs;
+        await setDoc(resultRef, payload);
+        await setDoc(shareDocRef, {
+            uid,
+            dateKey: currentDailyDateKey,
+            name: myUsername || 'Player',
+            playerScore: myScore,
+            aiScore: oppScore,
+            won: myScore > oppScore,
+            sharePath,
+            shareUrl,
+            shareGridColors: shareSnapshot.serializedColorCodes,
+            shareRowScores: shareSnapshot.serializedRowScores,
+            shareColScores: shareSnapshot.serializedColScores,
+            updatedAt: new Date()
+        });
+    }
 
     dailyGameFinished = true;
     lastDailyResultPayload = payload;
@@ -2295,7 +2408,42 @@ async function saveDailyResult(myScore, oppScore) {
 function createDailyShareText() {
     if (!lastDailyResultPayload) return 'Ik speelde vandaag de Daily van LetterDuel!';
     const resultWord = lastDailyResultPayload.won ? 'Gewonnen' : 'Verloren';
-    return `LetterDuel Daily ${lastDailyResultPayload.dateKey} • ${resultWord} • Ik ${lastDailyResultPayload.playerScore} - AI ${lastDailyResultPayload.aiScore}`;
+
+    const colorMap = {
+        H: '🟩',
+        V: '🟦',
+        B: '🟨',
+        N: '⬛'
+    };
+
+    const gridCodesRaw = String(lastDailyResultPayload.shareGridColors || '').toUpperCase();
+    const rowScores = String(lastDailyResultPayload.shareRowScores || '')
+        .split(',')
+        .map(v => Number(v))
+        .filter(v => Number.isFinite(v));
+    const colScores = String(lastDailyResultPayload.shareColScores || '')
+        .split(',')
+        .map(v => Number(v))
+        .filter(v => Number.isFinite(v));
+
+    const header = `LetterDuel Daily ${lastDailyResultPayload.dateKey} • ${resultWord} • Ik ${lastDailyResultPayload.playerScore} - AI ${lastDailyResultPayload.aiScore}`;
+    if (gridCodesRaw.length !== 25 || rowScores.length !== 5 || colScores.length !== 5) {
+        return header;
+    }
+
+    const lines = [header, ''];
+    for (let r = 0; r < 5; r++) {
+        let line = '';
+        for (let c = 0; c < 5; c++) {
+            const code = gridCodesRaw[(r * 5) + c];
+            line += colorMap[code] || colorMap.N;
+        }
+        lines.push(`${line} ${rowScores[r]}`);
+    }
+    lines.push(`Rijen→ ${rowScores.join(' ')}`);
+    lines.push(`Kolom↓ ${colScores.join(' ')}`);
+
+    return lines.join('\n');
 }
 
 function drawRoundedRect(ctx, x, y, width, height, radius) {
@@ -2333,30 +2481,28 @@ function drawDailyGridCard(ctx, grid, x, y, title, score) {
     ctx.textAlign = 'left';
     ctx.fillText(`${title}: ${score}`, x + 20, y + 56);
 
+    const snapshot = buildShareGridSnapshot(grid);
+    const tileColors = {
+        N: '#3a3f4b',
+        H: '#2ecc71',
+        V: '#00a8ff',
+        B: '#f1c40f'
+    };
+
     for (let row = 0; row < 5; row++) {
         for (let col = 0; col < 5; col++) {
             const idx = row * 5 + col;
-            const letter = grid[idx] || '';
+            const code = snapshot.colorCodes[idx];
             const cx = gridX + col * cellSize;
             const cy = gridY + row * cellSize;
 
-            ctx.fillStyle = '#333';
+            ctx.fillStyle = tileColors[code] || tileColors.N;
             ctx.fillRect(cx + 2, cy + 2, cellSize - 4, cellSize - 4);
-
-            if (letter) {
-                ctx.fillStyle = '#ecf0f1';
-                ctx.font = "900 44px Roboto, sans-serif";
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(letter, cx + cellSize / 2, cy + cellSize / 2 + 1);
-            }
         }
     }
 
     for (let r = 0; r < 5; r++) {
-        let rowStr = '';
-        for (let c = 0; c < 5; c++) rowStr += grid[r * 5 + c];
-        const rowScore = getLineScore(rowStr);
+        const rowScore = snapshot.rowScores[r] || 0;
         const sx = gridX + gridSize + 6;
         const sy = gridY + r * cellSize + 2;
 
@@ -2370,9 +2516,7 @@ function drawDailyGridCard(ctx, grid, x, y, title, score) {
     }
 
     for (let c = 0; c < 5; c++) {
-        let colStr = '';
-        for (let r = 0; r < 5; r++) colStr += grid[r * 5 + c];
-        const colScore = getLineScore(colStr);
+        const colScore = snapshot.colScores[c] || 0;
         const sx = gridX + c * cellSize + 2;
         const sy = gridY + gridSize + 6;
 
@@ -2385,23 +2529,6 @@ function drawDailyGridCard(ctx, grid, x, y, title, score) {
         ctx.fillText(colScore > 0 ? String(colScore) : '-', sx + (cellSize - 4) / 2, sy + (scoreSize - 4) / 2 + 1);
     }
 
-    const words = getScoringWords(grid);
-    words.forEach((word) => {
-        const strokeW = 5;
-        const ox = gridX + (word.c * cellSize) + 5;
-        const oy = gridY + (word.r * cellSize) + 5;
-        const ow = (word.type === 'row' ? word.len * cellSize : cellSize) - 10;
-        const oh = (word.type === 'col' ? word.len * cellSize : cellSize) - 10;
-
-        drawRoundedRect(ctx, ox, oy, ow, oh, Math.max(12, cellSize * 0.28));
-        ctx.lineWidth = strokeW;
-        const lineColor = word.type === 'row' ? '#2ecc71' : '#00d2d3';
-        ctx.strokeStyle = lineColor;
-        ctx.shadowColor = lineColor;
-        ctx.shadowBlur = 10;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-    });
 }
 
 async function createDailyResultCardBlob() {
@@ -2449,8 +2576,7 @@ function renderDailyResultCardCanvas() {
     ctx.fillStyle = won ? '#2ecc71' : '#ff4757';
     ctx.fillText(won ? 'GEWONNEN' : 'VERLOREN', 600, 400);
 
-    drawDailyGridCard(ctx, myGrid, 60, 470, 'Jij', myScore);
-    drawDailyGridCard(ctx, opponentGrid, 640, 470, 'Daily AI', aiScore);
+    drawDailyGridCard(ctx, myGrid, 350, 470, 'Jij', myScore);
 
     ctx.fillStyle = '#ecf0f1';
     ctx.font = "700 34px Roboto, sans-serif";
@@ -2483,25 +2609,22 @@ async function shareDailyResult(channel) {
 
     const text = createDailyShareText();
     const encodedText = encodeURIComponent(text);
-    const rawPageUrl = window.location.origin + window.location.pathname;
-    const pageUrl = encodeURIComponent(rawPageUrl);
+    const fallbackShareUrl = window.location.origin + window.location.pathname;
+    const shareUrl = (lastDailyResultPayload && lastDailyResultPayload.shareUrl)
+        ? lastDailyResultPayload.shareUrl
+        : (window.currentUser && currentDailyDateKey ? buildDailyShareUrl(currentDailyDateKey, window.currentUser.uid) : fallbackShareUrl);
+    const encodedShareUrl = encodeURIComponent(shareUrl);
 
     if (channel === 'x') {
-        await downloadDailyResultCard();
-        showFlashMessage('Twitter', 'Afbeelding gedownload, voeg hem toe in je tweet', 2600);
-        window.open(`https://twitter.com/intent/tweet?text=${encodedText}&url=${pageUrl}`, '_blank');
+        window.open(`https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedShareUrl}`, '_blank');
         return;
     }
     if (channel === 'facebook') {
-        await downloadDailyResultCard();
-        showFlashMessage('Facebook', 'Afbeelding gedownload, voeg hem toe in je post', 2600);
-        window.open(`https://www.facebook.com/sharer/sharer.php?u=${pageUrl}&quote=${encodedText}`, '_blank');
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodedShareUrl}&quote=${encodedText}`, '_blank');
         return;
     }
     if (channel === 'whatsapp') {
-        await downloadDailyResultCard();
-        showFlashMessage('WhatsApp', 'Afbeelding gedownload, voeg hem toe in WhatsApp', 2600);
-        window.open(`https://wa.me/?text=${encodeURIComponent(text + '\n' + rawPageUrl)}`, '_blank');
+        window.open(`https://wa.me/?text=${encodeURIComponent(text + '\n' + shareUrl)}`, '_blank');
     }
 }
 
