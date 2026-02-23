@@ -547,6 +547,15 @@
                 </div>
             </div>
         </div>
+
+        <div id="view-share-controls" style="display:none; margin-top: 12px;">
+            <div style="font-size:0.75rem; color:#95a5a6; margin-bottom:8px; text-transform:uppercase; font-weight:700;">DEEL DIT DAILY RESULTAAT</div>
+            <div class="control-row" style="margin-top:0; margin-bottom:0;">
+                <button class="mode-btn btn-online" style="padding:10px 12px; font-size:0.8rem;" onclick="shareViewedDailyResult('x')">𝕏 Twitter</button>
+                <button class="mode-btn btn-online" style="padding:10px 12px; font-size:0.8rem;" onclick="shareViewedDailyResult('facebook')">Facebook</button>
+                <button class="mode-btn btn-online" style="padding:10px 12px; font-size:0.8rem;" onclick="shareViewedDailyResult('whatsapp')">WhatsApp</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -874,6 +883,7 @@ let hsCurrentTab = 'today';
 let hsCurrentMode = 'regular';
 let hsDailyDateOptions = [];
 let hsSelectedDailyDateKey = getUtcDateKey();
+let viewedDailySharePayload = null;
 let hsCache = { global: null, personal: null }; 
 let hsDailyCache = {};
 let hsLastError = null;
@@ -1211,7 +1221,43 @@ function viewHighscoreGrid(data) {
         aiWrapper.style.display = 'none';
     }
 
+    const viewShareControls = document.getElementById('view-share-controls');
+    viewedDailySharePayload = null;
+
+    const isOwnDailyScore = hsCurrentMode === 'daily'
+        && !!window.currentUser
+        && !!data.uid
+        && data.uid === window.currentUser.uid;
+
+    if (isOwnDailyScore) {
+        const snapshot = buildShareGridSnapshot(playerGrid);
+        viewedDailySharePayload = {
+            uid: data.uid,
+            name: data.name || (myUsername || 'Player'),
+            dateKey: data.dateKey || hsSelectedDailyDateKey || getUtcDateKey(),
+            playerScore,
+            aiScore,
+            won: typeof data.won === 'boolean' ? data.won : (playerScore > aiScore),
+            shareGridColors: data.shareGridColors || snapshot.serializedColorCodes,
+            shareRowScores: data.shareRowScores || snapshot.serializedRowScores,
+            shareColScores: data.shareColScores || snapshot.serializedColScores
+        };
+    }
+
+    if (viewShareControls) {
+        viewShareControls.style.display = viewedDailySharePayload ? 'block' : 'none';
+    }
+
     document.getElementById('view-grid-modal').style.display = 'flex';
+}
+
+function shareViewedDailyResult(channel) {
+    if (!viewedDailySharePayload) {
+        showFlashMessage('Daily', 'Delen is alleen beschikbaar voor je eigen resultaat', 2200);
+        return;
+    }
+
+    shareDailyResult(channel, viewedDailySharePayload);
 }
 
 // --- FLASH MESSAGES ---
@@ -2748,6 +2794,50 @@ function createDailyShareText(channel) {
 
     const fallbackSnapshot = buildShareGridSnapshot(myGrid);
     const gridCodesRaw = String(lastDailyResultPayload?.shareGridColors || fallbackSnapshot.serializedColorCodes || '').toUpperCase();
+
+    if (channel === 'x') {
+        const xRowScores = String(lastDailyResultPayload?.shareRowScores || fallbackSnapshot.serializedRowScores || '')
+            .split(',')
+            .map(v => Number(v));
+        const xColScores = String(lastDailyResultPayload?.shareColScores || fallbackSnapshot.serializedColScores || '')
+            .split(',')
+            .map(v => Number(v));
+
+        const toMedal = (score) => {
+            if (score >= 15) return '🥇';
+            if (score >= 10) return '🥈';
+            if (score >= 5) return '🥉';
+            return '⬛';
+        };
+
+        const lines = [
+            'https://letterduel.net',
+            `Daily ${dateKey}`,
+            `🧠 My score: ${playerScore}`,
+            `🤖 AI score: ${aiScore}`,
+            ''
+        ];
+
+        if (gridCodesRaw.length === 25) {
+            for (let r = 0; r < 5; r++) {
+                let line = '';
+                for (let c = 0; c < 5; c++) {
+                    const code = gridCodesRaw[(r * 5) + c];
+                    line += colorMap[code] || colorMap.N;
+                }
+                const rowMedal = toMedal(xRowScores[r]);
+                lines.push(`${line} ${rowMedal}`);
+            }
+            if (xColScores.length === 5) {
+                lines.push(xColScores.map(score => toMedal(score)).join(' '));
+            }
+            lines.push('');
+        }
+
+        lines.push('#letterduel #daily');
+        return lines.join('\n');
+    }
+
     const rowScores = String(lastDailyResultPayload?.shareRowScores || fallbackSnapshot.serializedRowScores || '')
         .split(',')
         .map(v => Number(v))
@@ -2893,14 +2983,14 @@ function drawDailyGridCard(ctx, grid, x, y, title, score) {
 
 }
 
-async function createDailyResultCardBlob() {
-    const canvas = renderDailyResultCardCanvas();
+async function createDailyResultCardBlob(sourcePayload = null) {
+    const canvas = renderDailyResultCardCanvas(sourcePayload);
     return await new Promise((resolve) => {
         canvas.toBlob((blob) => resolve(blob), 'image/png');
     });
 }
 
-function renderDailyResultCardCanvas() {
+function renderDailyResultCardCanvas(sourcePayload = null) {
     const canvas = document.createElement('canvas');
     canvas.width = 1200;
     canvas.height = 1400;
@@ -2921,14 +3011,18 @@ function renderDailyResultCardCanvas() {
     ctx.textAlign = 'center';
     ctx.fillText('LETTERDUEL DAILY', 600, 165);
 
-    const dateLabel = currentDailyDateKey || getUtcDateKey();
+    const dateLabel = sourcePayload?.dateKey || currentDailyDateKey || getUtcDateKey();
     ctx.fillStyle = '#ecf0f1';
     ctx.font = "700 38px Roboto, sans-serif";
     ctx.fillText(dateLabel, 600, 220);
 
-    const myScore = lastDailyResultPayload ? lastDailyResultPayload.playerScore : calculatePoints(myGrid);
-    const aiScore = lastDailyResultPayload ? lastDailyResultPayload.aiScore : calculatePoints(opponentGrid);
-    const won = lastDailyResultPayload ? lastDailyResultPayload.won : (myScore > aiScore);
+    const resolvedPayload = sourcePayload || lastDailyResultPayload;
+    const sourcePlayerGrid = Array.isArray(sourcePayload?.playerGrid) ? sourcePayload.playerGrid : myGrid;
+    const sourceAiGrid = Array.isArray(sourcePayload?.aiGrid) ? sourcePayload.aiGrid : opponentGrid;
+
+    const myScore = resolvedPayload ? resolvedPayload.playerScore : calculatePoints(sourcePlayerGrid);
+    const aiScore = resolvedPayload ? resolvedPayload.aiScore : calculatePoints(sourceAiGrid);
+    const won = resolvedPayload ? resolvedPayload.won : (myScore > aiScore);
 
     ctx.fillStyle = '#ecf0f1';
     ctx.font = "900 88px Roboto, sans-serif";
@@ -2938,11 +3032,11 @@ function renderDailyResultCardCanvas() {
     ctx.fillStyle = won ? '#2ecc71' : '#ff4757';
     ctx.fillText(won ? 'GEWONNEN' : 'VERLOREN', 600, 400);
 
-    drawDailyGridCard(ctx, myGrid, 350, 470, 'Jij', myScore);
+    drawDailyGridCard(ctx, sourcePlayerGrid, 350, 470, 'Jij', myScore);
 
     ctx.fillStyle = '#ecf0f1';
     ctx.font = "700 34px Roboto, sans-serif";
-    ctx.fillText(`Speler: ${myUsername || 'Player'}`, 600, 1160);
+    ctx.fillText(`Speler: ${sourcePayload?.name || myUsername || 'Player'}`, 600, 1160);
     ctx.font = "700 30px Roboto, sans-serif";
     ctx.fillText('Speel vandaag op letterduel.pages.dev', 600, 1230);
 
@@ -2963,44 +3057,81 @@ async function downloadDailyResultCard() {
     link.click();
 }
 
-async function shareDailyResult(channel) {
-    if (gameMode !== 'daily') {
+async function shareDailyResult(channel, payloadOverride = null) {
+    if (gameMode !== 'daily' && !payloadOverride) {
         showFlashMessage('Daily', 'Start eerst een Daily match');
         return;
     }
 
-    const text = createDailyShareText(channel);
-    const encodedText = encodeURIComponent(text);
+    const prevPayload = lastDailyResultPayload;
+    const prevDateKey = currentDailyDateKey;
 
-    if (navigator.share && channel === 'native') {
-        try {
-            await navigator.share({
-                title: 'LetterDuel Daily',
-                text
-            });
+    if (payloadOverride) {
+        lastDailyResultPayload = payloadOverride;
+        currentDailyDateKey = payloadOverride.dateKey || currentDailyDateKey || getUtcDateKey();
+    }
+
+    try {
+        const text = createDailyShareText(channel);
+        const encodedText = encodeURIComponent(text);
+
+        if (channel === 'x') {
+            let copiedImage = false;
+            try {
+                if (window.isSecureContext && navigator.clipboard && window.ClipboardItem) {
+                    const blob = await createDailyResultCardBlob(payloadOverride);
+                    if (blob) {
+                        await navigator.clipboard.write([
+                            new ClipboardItem({ 'image/png': blob })
+                        ]);
+                        copiedImage = true;
+                    }
+                }
+            } catch (copyErr) {
+                console.warn('Scorekaart kopiëren mislukt:', copyErr);
+            }
+
+            if (copiedImage) {
+                showFlashMessage('✅ Scorekaart gekopieerd!', 'Ga naar X en druk Ctrl+V om de afbeelding te plakken.', 3600);
+            } else {
+                showFlashMessage('X delen', 'Kon scorekaart niet kopiëren. Gebruik Download scorekaart.', 3200);
+            }
+
+            window.open(`https://twitter.com/intent/tweet?text=${encodedText}`, '_blank');
             return;
-        } catch (err) {
-            console.warn('Direct delen geannuleerd/mislukt:', err);
         }
-    }
 
-    if (channel === 'x') {
-        window.open(`https://twitter.com/intent/tweet?text=${encodedText}`, '_blank');
-        return;
-    }
-    if (channel === 'facebook') {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(text).then(() => {
-                showFlashMessage('Facebook', 'Tekst gekopieerd, plak in je post', 2800);
-            }).catch(() => {
-                showFlashMessage('Facebook', 'Kopieer de tekst handmatig uit het resultaatvenster', 3000);
-            });
+        if (navigator.share && channel === 'native') {
+            try {
+                await navigator.share({
+                    title: 'LetterDuel Daily',
+                    text
+                });
+                return;
+            } catch (err) {
+                console.warn('Direct delen geannuleerd/mislukt:', err);
+            }
         }
-        window.open('https://www.facebook.com/', '_blank');
-        return;
-    }
-    if (channel === 'whatsapp') {
-        window.open(`https://wa.me/?text=${encodedText}`, '_blank');
+
+        if (channel === 'facebook') {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showFlashMessage('Facebook', 'Tekst gekopieerd, plak in je post', 2800);
+                }).catch(() => {
+                    showFlashMessage('Facebook', 'Kopieer de tekst handmatig uit het resultaatvenster', 3000);
+                });
+            }
+            window.open('https://www.facebook.com/', '_blank');
+            return;
+        }
+        if (channel === 'whatsapp') {
+            window.open(`https://wa.me/?text=${encodedText}`, '_blank');
+        }
+    } finally {
+        if (payloadOverride) {
+            lastDailyResultPayload = prevPayload;
+            currentDailyDateKey = prevDateKey;
+        }
     }
 }
 
