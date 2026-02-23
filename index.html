@@ -2406,8 +2406,17 @@ async function saveDailyResult(myScore, oppScore) {
 }
 
 function createDailyShareText() {
-    if (!lastDailyResultPayload) return 'Ik speelde vandaag de Daily van LetterDuel!';
-    const resultWord = lastDailyResultPayload.won ? 'Gewonnen' : 'Verloren';
+    const dateKey = lastDailyResultPayload?.dateKey || currentDailyDateKey || getUtcDateKey();
+    const playerScore = Number.isFinite(lastDailyResultPayload?.playerScore)
+        ? lastDailyResultPayload.playerScore
+        : calculatePoints(myGrid);
+    const aiScore = Number.isFinite(lastDailyResultPayload?.aiScore)
+        ? lastDailyResultPayload.aiScore
+        : calculatePoints(opponentGrid);
+    const won = typeof lastDailyResultPayload?.won === 'boolean'
+        ? lastDailyResultPayload.won
+        : playerScore > aiScore;
+    const resultWord = won ? 'Gewonnen' : 'Verloren';
 
     const colorMap = {
         H: '🟩',
@@ -2416,20 +2425,19 @@ function createDailyShareText() {
         N: '⬛'
     };
 
-    const gridCodesRaw = String(lastDailyResultPayload.shareGridColors || '').toUpperCase();
-    const rowScores = String(lastDailyResultPayload.shareRowScores || '')
+    const fallbackSnapshot = buildShareGridSnapshot(myGrid);
+    const gridCodesRaw = String(lastDailyResultPayload?.shareGridColors || fallbackSnapshot.serializedColorCodes || '').toUpperCase();
+    const rowScores = String(lastDailyResultPayload?.shareRowScores || fallbackSnapshot.serializedRowScores || '')
         .split(',')
         .map(v => Number(v))
         .filter(v => Number.isFinite(v));
-    const colScores = String(lastDailyResultPayload.shareColScores || '')
+    const colScores = String(lastDailyResultPayload?.shareColScores || fallbackSnapshot.serializedColScores || '')
         .split(',')
         .map(v => Number(v))
         .filter(v => Number.isFinite(v));
 
-    const header = `LetterDuel Daily ${lastDailyResultPayload.dateKey} • ${resultWord} • Ik ${lastDailyResultPayload.playerScore} - AI ${lastDailyResultPayload.aiScore}`;
-    if (gridCodesRaw.length !== 25 || rowScores.length !== 5 || colScores.length !== 5) {
-        return header;
-    }
+    const header = `LetterDuel Daily ${dateKey} • ${resultWord} • Ik ${playerScore} - AI ${aiScore}`;
+    if (gridCodesRaw.length !== 25 || rowScores.length !== 5 || colScores.length !== 5) return header;
 
     const lines = [header, ''];
     for (let r = 0; r < 5; r++) {
