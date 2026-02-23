@@ -2609,22 +2609,36 @@ async function shareDailyResult(channel) {
 
     const text = createDailyShareText();
     const encodedText = encodeURIComponent(text);
-    const fallbackShareUrl = window.location.origin + window.location.pathname;
-    const shareUrl = (lastDailyResultPayload && lastDailyResultPayload.shareUrl)
-        ? lastDailyResultPayload.shareUrl
-        : (window.currentUser && currentDailyDateKey ? buildDailyShareUrl(currentDailyDateKey, window.currentUser.uid) : fallbackShareUrl);
-    const encodedShareUrl = encodeURIComponent(shareUrl);
+
+    if (navigator.share && channel === 'native') {
+        try {
+            await navigator.share({
+                title: 'LetterDuel Daily',
+                text
+            });
+            return;
+        } catch (err) {
+            console.warn('Direct delen geannuleerd/mislukt:', err);
+        }
+    }
 
     if (channel === 'x') {
-        window.open(`https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedShareUrl}`, '_blank');
+        window.open(`https://twitter.com/intent/tweet?text=${encodedText}`, '_blank');
         return;
     }
     if (channel === 'facebook') {
-        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodedShareUrl}&quote=${encodedText}`, '_blank');
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                showFlashMessage('Facebook', 'Tekst gekopieerd, plak in je post', 2800);
+            }).catch(() => {
+                showFlashMessage('Facebook', 'Kopieer de tekst handmatig uit het resultaatvenster', 3000);
+            });
+        }
+        window.open('https://www.facebook.com/', '_blank');
         return;
     }
     if (channel === 'whatsapp') {
-        window.open(`https://wa.me/?text=${encodeURIComponent(text + '\n' + shareUrl)}`, '_blank');
+        window.open(`https://wa.me/?text=${encodedText}`, '_blank');
     }
 }
 
