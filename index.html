@@ -109,7 +109,7 @@
             }
         }
         @keyframes popIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-        .big-logo { width: 80px; height: 80px; margin: 0 auto 10px auto; display: block; }
+        .big-logo { width: 80px; height: 80px; margin: 18px auto 10px auto; display: block; }
         .menu-title { font-size: 1.8rem; font-weight: 900; color: var(--text-main); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;}
         .mode-btn { padding: 18px; font-size: 1rem; font-weight: 700; color: white; border: none; border-radius: 6px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 0 rgba(0,0,0,0.3); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: center; gap: 10px; }
         .mode-btn:active { transform: translateY(4px); box-shadow: none; }
@@ -137,21 +137,26 @@
             gap: 15px; 
         }
         #main-menu { display: flex; flex-direction: column; gap: 15px; width: 100%; }
+
+        .menu-section-title { text-align:center; font-weight:bold; color:var(--text-muted); }
+        .menu-section-daily { margin-bottom:5px; margin-top:2px; }
+        .menu-section-regular { margin:8px 0 5px; }
         
         /* INFO BUTTON & RULES */
         .info-btn {
-            position: absolute; top: 15px; right: 15px;
-            padding: 8px 15px;
-            width: auto; height: auto;
+            position: absolute; top: 14px; right: 14px;
+            width: 156px; height: 36px;
+            padding: 0 10px;
             border: 1px solid rgba(255,255,255,0.2); 
             border-radius: 20px;
             background: rgba(0,0,0,0.4);
             color: var(--text-muted); 
-            font-weight: bold; font-size: 0.8rem;
+            font-weight: bold; font-size: 0.82rem;
             text-transform: uppercase;
-            display: flex; align-items: center; gap: 6px;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
             cursor: pointer; transition: all 0.2s; font-family: 'Roboto', sans-serif;
             z-index: 60;
+            box-sizing: border-box;
         }
         .info-btn:hover { border-color: var(--secondary); color: white; background: var(--surface); }
 
@@ -160,9 +165,16 @@
         
         /* PROFILE EDIT */
         #profile-display {
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-            color: #888; font-size: 0.9rem; cursor: pointer; margin-bottom: 20px;
-            padding: 5px 10px; border-radius: 20px; transition: background 0.2s;
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            width: 156px; height: 36px;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            color: var(--text-muted); font-size: 0.82rem; cursor: pointer; margin-bottom: 0;
+            padding: 0 10px; border-radius: 20px; transition: background 0.2s;
+            background: rgba(0,0,0,0.4);
+            z-index: 60;
+            box-sizing: border-box;
         }
         #profile-display:hover { background: rgba(255,255,255,0.05); color: white; }
         #profile-name { font-weight: bold; color: var(--text-main); }
@@ -383,11 +395,11 @@
         </div>
 
         <div id="main-menu">
-            <div style="text-align:center; font-weight:bold; color:var(--text-muted); margin-bottom:5px; margin-top:2px;">DAILY</div>
+            <div class="menu-section-title menu-section-daily">DAILY</div>
             <button class="mode-btn btn-daily" onclick="startDailyMode()"><span>🎯</span> Play The Daily Game</button>
             <button class="mode-btn btn-highscore" onclick="openDailyHighscores()"><span>🏆</span> Daily Ranglijst</button>
 
-            <div style="text-align:center; font-weight:bold; color:var(--text-muted); margin:8px 0 5px;">REGULAR</div>
+            <div class="menu-section-title menu-section-regular">REGULAR</div>
             <button class="mode-btn btn-computer" onclick="showDifficultySelect()"><span>🤖</span> Tegen Computer</button>
             <button class="mode-btn btn-online" onclick="showOnlineLobby()"><span>⚔️</span> Online Duel</button>
             <button class="mode-btn btn-highscore" onclick="openHighscores()"><span>📈</span> Highscores</button>
