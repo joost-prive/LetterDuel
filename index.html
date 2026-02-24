@@ -113,11 +113,12 @@
         .big-logo { width: 80px; height: 80px; margin: 18px auto 10px auto; display: block; }
         .menu-title { font-size: 1.8rem; font-weight: 900; color: var(--text-main); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;}
         .mode-btn { padding: 18px; font-size: 1rem; font-weight: 700; color: white; border: none; border-radius: 8px; cursor: pointer; transition: all 0.2s; box-shadow: 0 3px 0 rgba(24, 39, 75, 0.18); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .mode-btn:hover { transform: translateY(-2px); }
         #start-screen .mode-btn { justify-content: center; text-align: left; text-transform: none; letter-spacing: 0.2px; gap: 14px; padding: 20px 18px; }
-        #start-screen .mode-btn .btn-icon { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        #start-screen .mode-btn .btn-icon svg { width: 27px; height: 27px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        #start-screen .mode-btn .btn-icon { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        #start-screen .mode-btn .btn-icon svg { width: 36px; height: 36px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
         #start-screen .mode-btn .btn-label { font-size: 1.15rem; font-weight: 800; line-height: 1.15; flex: 0 1 240px; text-align: left; }
-        .mode-btn:active { transform: translateY(4px); box-shadow: none; }
+        .mode-btn:active { transform: translateY(3px) scale(0.98); box-shadow: none; }
         .mode-btn span { font-size: 1.2rem; }
         .btn-computer { background-color: #3498db; }
         .btn-online { background-color: var(--secondary); color: #0b2b2a; }
@@ -186,7 +187,7 @@
         #game-status-bar { background: var(--surface); padding: 15px 20px; border-radius: 10px; box-shadow: 0 6px 16px rgba(24, 39, 75, 0.12); margin-bottom: 15px; width: 90%; max-width: 400px; border: 1px solid #e0e7f3; border-left: 4px solid var(--primary); }
         
         #turn-instruction { 
-            font-size: 1rem; font-weight: 700; color: var(--text-muted); 
+            font-size: 1rem; font-weight: 700; color: var(--text-main); 
             text-transform: uppercase; display: block; margin-bottom: 5px; 
             white-space: normal; line-height: 1.4;
         }
@@ -626,15 +627,16 @@
         <p><strong>De Basis:</strong><br>
         Jullie hebben allebei een bord van 5x5. Kies en plaats om de beurt een letter. Wie maakt daarmee de meeste woorden horizontaal en verticaal?</p>
 
-        <ul style="padding-left:20px; line-height:1.6;" class="rules-list">
-            <li><strong>Start:</strong> Het spel begint met 2 random letters.</li>
-            <li><strong>Punten:</strong><br>
-                • 3 letters = <span style="color:var(--easy)">5 pnt</span><br>
-                • 4 letters = <span style="color:var(--medium)">10 pnt</span><br>
-                • 5 letters = <span style="color:var(--hard)">15 pnt</span>
-            </li>
-            <li><strong>De Finale:</strong> Sta je achter bij de laatste beurt? Dan mag <em>jij</em> de beslissende laatste letter kiezen!</li>
-        </ul>
+        <p class="rules-list"><strong>Start:</strong> Het spel begint met 2 random letters.</p>
+        <div class="rules-list" style="line-height:1.6; margin-bottom:8px;">
+            <strong>Punten:</strong><br>
+            • 3 letters = <span style="color:var(--easy)">5 pnt</span><br>
+            • 4 letters = <span style="color:var(--medium)">10 pnt</span><br>
+            • 5 letters = <span style="color:var(--hard)">15 pnt</span>
+        </div>
+
+        <p class="rules-list"><strong>Daily:</strong> Iedereen krijgt van de computer dezelfde letters! Wie haalt de hoogste score van de dag?</p>
+        <p class="rules-list"><strong>Regular:</strong> Sta je achter bij de laatste beurt? Dan mag jij de beslissende laatste letter kiezen!</p>
         
         <button class="action-btn" onclick="closeRules()" style="width:100%; margin-top:10px;">BEGREPEN</button>
     </div>
@@ -820,6 +822,18 @@ function pickWeightedLetterFromRng(rng) {
     return 'E';
 }
 
+function pickWeightedLetterFromGroups(rng, groups) {
+    const totalWeight = groups.reduce((sum, group) => sum + group.weight, 0);
+    let randomNum = rng() * totalWeight;
+    for (let group of groups) {
+        if (randomNum < group.weight) {
+            return group.chars.charAt(Math.floor(rng() * group.chars.length));
+        }
+        randomNum -= group.weight;
+    }
+    return 'E';
+}
+
 function buildDailyPuzzle(dateKey) {
     const seed = hashStringToSeed(`LETTERDUEL-DAILY-${dateKey}`);
     const rng = createSeededRandom(seed);
@@ -833,8 +847,17 @@ function buildDailyPuzzle(dateKey) {
     }
 
     const aiSequence = [];
+    const easyGroups = WEIGHTED_LETTERS.slice(0, 2);
+    const withoutHardest = WEIGHTED_LETTERS.slice(0, 4);
     for (let i = 0; i < 11; i++) {
-        aiSequence.push(pickWeightedLetterFromRng(rng));
+        let groups = WEIGHTED_LETTERS;
+        if (i >= 7) {
+            groups = withoutHardest;
+        }
+        if (i >= 9) {
+            groups = easyGroups;
+        }
+        aiSequence.push(pickWeightedLetterFromGroups(rng, groups));
     }
 
     return {
@@ -1268,7 +1291,7 @@ async function renderDailyHighscores() {
 
         const aiScoreEl = document.createElement('div');
         aiScoreEl.className = 'hs-ai-score';
-        aiScoreEl.textContent = `AI ${scoreData.aiScore ?? 0}`;
+        aiScoreEl.textContent = `COMP ${scoreData.aiScore ?? 0}`;
 
         const eyeBtn = document.createElement('button');
         eyeBtn.className = 'eye-btn';
@@ -1426,7 +1449,7 @@ function initializeDailyGame(puzzle, dateKey) {
     isSinglePlayer = true;
     gameMode = 'daily';
     aiDifficulty = 'hard';
-    opponentName = 'Daily AI';
+    opponentName = 'Comp.';
     finalTurnProcessed = false;
     finaleShown = false;
     isAiProcessing = false;
@@ -1871,7 +1894,7 @@ function simulateDailyAiPickStep() {
     pendingLetter = nextLetter;
     isMyPickTurn = false;
     simulationAwaitingAiPick = false;
-    updateUI(`SIMULATIE: daily AI kiest ${nextLetter}`);
+    updateUI(`SIMULATIE: Comp. kiest ${nextLetter}`);
 }
 
 function simulationTick() {
@@ -2403,7 +2426,7 @@ function handleDailyAiReaction() {
     }
 
     isAiProcessing = true;
-    updateUI('Daily AI denkt na...', true);
+    updateUI('Comp. denkt na...', true);
     setTimeout(() => {
         const nextLetter = currentDailyPuzzle.aiSequence[dailyAiSequenceIndex];
         dailyAiSequenceIndex += 1;
@@ -2490,9 +2513,10 @@ function getBestPositionForLetter(grid, letter) {
 }
 
 function updateUI(overrideMsg, isThinking) {
+    instructionText.style.whiteSpace = "normal";
     if (isThinking) { 
         instructionText.innerText = overrideMsg; 
-        instructionText.style.color = "#95a5a6";
+        instructionText.style.color = "var(--text-muted)";
         letterDisplay.innerText = ""; 
         keyboard.style.display = 'none'; 
         return; 
@@ -2503,7 +2527,7 @@ function updateUI(overrideMsg, isThinking) {
     // --- FIX: ALS ROOSTER VOL IS, ALTIJD WACHTEN ---
     if (filledCount >= 25) {
         instructionText.innerText = "WACHTEN OP TEGENSTANDER..."; 
-        instructionText.style.color = "#95a5a6"; 
+        instructionText.style.color = "var(--text-muted)"; 
         instructionText.style.fontSize = "1rem";
         letterDisplay.innerText = "...";
         document.body.classList.remove("highlight-empty"); 
@@ -2514,8 +2538,8 @@ function updateUI(overrideMsg, isThinking) {
 
     // START SITUATIE (2 letters gevuld)
     if (filledCount === 2) {
-        instructionText.style.fontSize = "0.85rem"; 
-        instructionText.style.color = "#ecf0f1";
+        instructionText.style.fontSize = "0.95rem"; 
+        instructionText.style.color = "var(--text-main)";
 
         if (pendingLetter) {
             instructionText.innerText = `2 random letters zijn al geplaatst. Je tegenstander heeft nu op zijn bord de letter ${pendingLetter} geplaatst. Jij moet die ook op jouw bord plaatsen.`;
@@ -2524,7 +2548,12 @@ function updateUI(overrideMsg, isThinking) {
             keyboard.style.display = 'none';
             return;
         } else if (isMyPickTurn) {
-            instructionText.innerText = "2 random startletters zijn al geplaatst. Jij bent nu aan de beurt. Selecteer een vakje en plaats daar een letter.";
+            if (gameMode === 'daily') {
+                instructionText.innerText = "Plaats om de beurt ergens een letter. De computer kiest voor iedereen dezelfde letters. Wie haalt de hoogste score van de dag?\nSelecteer een vakje en plaats daar een letter.";
+                instructionText.style.whiteSpace = "pre-line";
+            } else {
+                instructionText.innerText = "2 random startletters zijn al geplaatst. Jij bent nu aan de beurt. Selecteer een vakje en plaats daar een letter.";
+            }
             letterDisplay.innerText = "?";
             document.body.classList.remove("highlight-empty");
         }
@@ -2532,11 +2561,15 @@ function updateUI(overrideMsg, isThinking) {
 
     // TWEEDE BEURT (3 letters gevuld)
     if (filledCount === 3) {
-        instructionText.style.fontSize = "0.85rem";
-        instructionText.style.color = "#ecf0f1";
+        instructionText.style.fontSize = "0.9rem";
+        instructionText.style.color = "var(--text-main)";
 
         if (pendingLetter) {
-            instructionText.innerText = `Je tegenstander heeft jouw letter geplaatst en heeft in zijn beurt de letter ${pendingLetter} gekozen. Plaats deze nu op jouw bord.`;
+            if (gameMode === 'daily') {
+                instructionText.innerText = `De Computer heeft jouw letter geplaatst en in zijn beurt de letter ${pendingLetter} gekozen. Plaats deze nu op jouw bord`;
+            } else {
+                instructionText.innerText = `Je tegenstander heeft jouw letter geplaatst en heeft in zijn beurt de letter ${pendingLetter} gekozen. Plaats deze nu op jouw bord.`;
+            }
             letterDisplay.innerText = pendingLetter;
             document.body.classList.add("highlight-empty");
             keyboard.style.display = 'none';
@@ -2564,10 +2597,10 @@ function updateUI(overrideMsg, isThinking) {
         if (filledCount > 3) {
             if (isMyTurn) {
                 instructionText.innerText = "PLAATS DE LETTER"; 
-                instructionText.style.color = "var(--secondary)";
+                instructionText.style.color = "var(--primary)";
             } else {
                 instructionText.innerText = "TEGENSTANDER IS AAN ZET...";
-                instructionText.style.color = "#95a5a6";
+                instructionText.style.color = "var(--text-muted)";
             }
         }
         
@@ -2586,19 +2619,19 @@ function updateUI(overrideMsg, isThinking) {
         
         if (activeCellIndex !== null) { 
             instructionText.innerText = "KIES LETTER:"; 
-            instructionText.style.color = "#ecf0f1";
+            instructionText.style.color = "var(--text-main)";
             instructionText.style.fontSize = "1rem"; 
             keyboard.style.display = 'flex'; 
         } else { 
             if (filledCount > 3) {
                 instructionText.innerText = "KIES EEN VAKJE"; 
-                instructionText.style.color = "#ecf0f1";
+                instructionText.style.color = "var(--text-main)";
             }
             keyboard.style.display = 'none'; 
         }
     } else {
         instructionText.innerText = overrideMsg || "WACHTEN OP TEGENSTANDER..."; 
-        instructionText.style.color = "#95a5a6"; 
+        instructionText.style.color = "var(--text-muted)"; 
         instructionText.style.fontSize = "1rem";
         letterDisplay.innerText = "...";
         document.body.classList.remove("highlight-empty"); 
@@ -2888,7 +2921,7 @@ function createDailyShareText(channel) {
             'https://letterduel.net',
             `Daily ${dateKey}`,
             `🧠 My score: ${playerScore}`,
-            `🤖 AI score: ${aiScore}`,
+            `🧩 Comp. score: ${aiScore}`,
             '#letterduel #daily',
             ''
         ];
@@ -2905,7 +2938,7 @@ function createDailyShareText(channel) {
         .filter(v => Number.isFinite(v));
 
     const attemptTag = '';
-    const header = `LetterDuel Daily ${dateKey} • ${resultWord} • Ik ${playerScore} - AI ${aiScore}${attemptTag}`;
+    const header = `LetterDuel Daily ${dateKey} • ${resultWord} • Ik ${playerScore} - Comp. ${aiScore}${attemptTag}`;
     if (gridCodesRaw.length !== 25 || rowScores.length !== 5 || colScores.length !== 5) return header;
 
     const toFullWidthDigits = (input) => {
