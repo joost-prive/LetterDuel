@@ -79,6 +79,8 @@
             touch-action: manipulation;
             display: flex; flex-direction: column; align-items: center;
             min-height: 100vh;
+            min-height: 100dvh;
+            overflow: hidden;
         }
 
         /* BRANDING */
@@ -137,6 +139,7 @@
         #difficulty-select, #lobby-ui { display: none; flex-direction: column; gap: 15px; width: 100%; }
         
         #lobby-start-buttons { width: 100%; }
+        #lobby-start-buttons .btn-label { flex: 0 0 auto; }
         #main-menu { display: flex; flex-direction: column; gap: 15px; width: 100%; }
 
         .menu-section-title { text-align:center; font-weight:bold; color:var(--text-muted); }
@@ -183,7 +186,15 @@
         #profile-icon { font-size: 0.8rem; opacity: 0.5; }
 
         /* GAME UI */
-        .container { width: 100%; max-width: 450px; position: relative; padding-bottom: 160px; }
+        .container {
+            width: 100%;
+            max-width: 450px;
+            position: relative;
+            padding-bottom: calc(148px + env(safe-area-inset-bottom, 0px));
+            box-sizing: border-box;
+            min-height: 100dvh;
+            overflow: hidden;
+        }
         #game-status-bar { background: var(--surface); padding: 15px 20px; border-radius: 10px; box-shadow: 0 6px 16px rgba(24, 39, 75, 0.12); margin-bottom: 15px; width: 90%; max-width: 400px; border: 1px solid #e0e7f3; border-left: 4px solid var(--primary); }
         
         #turn-instruction { 
@@ -197,16 +208,24 @@
         #win-chance-container { width: 100%; max-width: 450px; margin-bottom: 20px; display: none; padding: 0 10px; box-sizing: border-box; }
         canvas { border-radius: 6px; border: 1px solid #d6e0f0; box-shadow: 0 3px 8px rgba(24, 39, 75, 0.15); background: #f1f5fb; width: 100%; height: 40px; }
 
-        .integrated-game-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; width: 100%; margin-bottom: 25px; padding: 0 10px; box-sizing: border-box; }
+        .integrated-game-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 6px;
+            width: min(100%, clamp(250px, calc(100dvh - 380px), 430px));
+            margin-bottom: 14px;
+            padding: 0 10px;
+            box-sizing: border-box;
+        }
         .cell { background-color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 900; text-transform: uppercase; color: var(--text-main); cursor: pointer; border-radius: 6px; box-shadow: 0 2px 0 #cfd9ea; border: 1px solid #dfe7f3; transition: all 0.1s; aspect-ratio: 1/1; }
         .cell:active { transform: translateY(3px); box-shadow: none; }
         .cell.filled { background: #e9f1ff; color: #1f2a3a; cursor: default; transform: none; box-shadow: 0 2px 0 #cfd9ea; border: 1px solid #d5e1f3; }
         .highlight-empty .cell:not(.filled) { background-color: rgba(60, 201, 198, 0.14); border: 1px dashed var(--secondary); box-shadow: none; }
 
         /* CONTROLS */
-        #virtual-keyboard { position: fixed; bottom: 0; left: 0; right: 0; background: #eef2f8; padding: 15px 5px 25px 5px; display: none; flex-direction: column; gap: 6px; z-index: 40; border-top: 1px solid #d6e0f0; box-shadow: 0 -6px 20px rgba(24, 39, 75, 0.12); }
+        #virtual-keyboard { position: fixed; bottom: 0; left: 0; right: 0; background: #eef2f8; padding: 10px 5px calc(10px + env(safe-area-inset-bottom, 0px)) 5px; display: none; flex-direction: column; gap: 4px; z-index: 40; border-top: 1px solid #d6e0f0; box-shadow: 0 -6px 20px rgba(24, 39, 75, 0.12); }
         .kb-row { display: flex; justify-content: center; gap: 4px; }
-        .kb-key { background: #ffffff; border: 1px solid #dfe7f3; border-radius: 6px; font-weight: 700; color: #1f2a3a; font-size: 1.1rem; padding: 14px 0; width: 8.8%; cursor: pointer; box-shadow: 0 2px 0 #cfd9ea; font-family: 'Roboto', sans-serif; }
+        .kb-key { background: #ffffff; border: 1px solid #dfe7f3; border-radius: 6px; font-weight: 700; color: #1f2a3a; font-size: 1.05rem; padding: 10px 0; width: 8.8%; cursor: pointer; box-shadow: 0 2px 0 #cfd9ea; font-family: 'Roboto', sans-serif; }
         .kb-key:active { transform: translateY(2px); box-shadow: none; background: #e6edf8; }
 
         .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 24, 38, 0.55); z-index: 100; backdrop-filter: blur(6px); align-items: center; justify-content: center; overflow-y: auto; }
@@ -281,6 +300,12 @@
             font-weight: 900; 
             text-transform: uppercase; 
             line-height: 1.3;
+        }
+
+        .cell.selected-target {
+            background: rgba(60, 191, 171, 0.18);
+            border: 2px solid var(--easy) !important;
+            box-shadow: 0 0 0 2px rgba(60, 191, 171, 0.18);
         }
 
         /* HIGHSCORES CSS */
@@ -361,6 +386,57 @@
             #view-grid-comparison {
                 gap: 26px;
                 padding: 0 10px;
+            }
+        }
+
+        #result-modal { align-items: flex-start; }
+        #result-modal .modal-content {
+            width: min(500px, calc(100vw - 20px));
+            max-height: calc(100dvh - 16px);
+            overflow-y: auto;
+            margin: 8px auto;
+            padding: 16px 14px 18px;
+        }
+        #result-modal .comparison-container {
+            gap: 14px;
+            margin-top: 6px;
+            margin-bottom: 12px;
+        }
+
+        @media (max-height: 760px) {
+            #game-status-bar {
+                padding: 10px 14px;
+                margin-bottom: 10px;
+            }
+            #turn-instruction {
+                font-size: 0.9rem;
+            }
+            #pending-letter-display {
+                font-size: 1.8rem;
+                height: 32px;
+            }
+            .integrated-game-grid {
+                width: min(100%, clamp(230px, calc(100dvh - 340px), 390px));
+                gap: 5px;
+                margin-bottom: 10px;
+            }
+            .control-row {
+                margin-top: 6px;
+                gap: 8px;
+            }
+            .kb-key {
+                padding: 8px 0;
+                font-size: 0.98rem;
+            }
+            .winner-text {
+                font-size: 1.55rem;
+            }
+            .score-big {
+                font-size: 1rem;
+            }
+            .result-grid-layout {
+                grid-template-columns: 150px 28px;
+                grid-template-rows: 150px 28px;
             }
         }
 
@@ -622,23 +698,12 @@
 <div id="rules-modal" class="modal">
     <div class="modal-content" style="text-align:left;">
         <span class="close-modal" onclick="closeRules()">&times;</span>
-        <h2 style="color:var(--secondary); margin-top:0;">SPELREGELS</h2>
-        
-        <p><strong>De Basis:</strong><br>
-        Jullie hebben allebei een bord van 5x5. Kies en plaats om de beurt een letter. Wie maakt daarmee de meeste woorden horizontaal en verticaal?</p>
-
-        <p class="rules-list"><strong>Start:</strong> Het spel begint met 2 random letters.</p>
-        <div class="rules-list" style="line-height:1.6; margin-bottom:8px;">
-            <strong>Punten:</strong><br>
-            • 3 letters = <span style="color:var(--easy)">5 pnt</span><br>
-            • 4 letters = <span style="color:var(--medium)">10 pnt</span><br>
-            • 5 letters = <span style="color:var(--hard)">15 pnt</span>
-        </div>
-
-        <p class="rules-list"><strong>Daily:</strong> Iedereen krijgt van de computer dezelfde letters! Wie haalt de hoogste score van de dag?</p>
-        <p class="rules-list"><strong>Regular:</strong> Sta je achter bij de laatste beurt? Dan mag jij de beslissende laatste letter kiezen!</p>
-        
-        <button class="action-btn" onclick="closeRules()" style="width:100%; margin-top:10px;">BEGREPEN</button>
+        <h2 id="rules-modal-title" style="color:var(--secondary); margin-top:0;">SPELREGELS</h2>
+        <div id="rules-modal-body"></div>
+        <label id="rules-skip-wrap" style="display:none; margin-top:12px; font-size:0.9rem; color:#5f6f86; cursor:pointer;">
+            <input type="checkbox" id="rules-skip-checkbox" style="margin-right:8px; transform: scale(1.1);">Niet meer tonen
+        </label>
+        <button id="rules-primary-btn" class="action-btn" onclick="handleRulesPrimaryAction()" style="width:100%; margin-top:12px;">BEGREPEN</button>
     </div>
 </div>
 
@@ -683,7 +748,6 @@ let pendingLetter = null;
 let isMyPickTurn = false;
 let activeCellIndex = null;
 let finalTurnProcessed = false; 
-let finaleShown = false; 
 let isAiProcessing = false; 
 let isJoiningOnlineGame = false;
 let isSimulationRunning = false;
@@ -697,6 +761,9 @@ let currentDailyPuzzle = null;
 let dailyAiSequenceIndex = 0;
 let dailyGameFinished = false;
 let lastDailyResultPayload = null;
+const RULES_SKIP_STORAGE_KEY = 'ld_hide_rules_popup';
+let rulesContinueCallback = null;
+let lastAnnouncedPendingLetter = null;
 const isDailyAttemptLimitEnabled = true;
 const isDebugMode = ['localhost', '127.0.0.1'].includes(window.location.hostname) || new URLSearchParams(window.location.search).get('debug') === '1';
 
@@ -935,9 +1002,101 @@ function saveUsername() {
 }
 
 // --- RULES & MODALS ---
-function openRules() { document.getElementById('rules-modal').style.display = 'flex'; }
-function closeRules() { document.getElementById('rules-modal').style.display = 'none'; }
-function openChecker() { document.getElementById('checker-modal').style.display = 'flex'; document.getElementById('checker-input').focus(); }
+function getRulesTextConfig(mode = 'general') {
+    const normalizedMode = ['general', 'daily', 'single', 'online'].includes(mode) ? mode : 'general';
+    const isGeneral = normalizedMode === 'general';
+    const isOnline = normalizedMode === 'online';
+    const isDaily = normalizedMode === 'daily';
+
+    return {
+        title: isGeneral ? 'SPELREGELS' : (isDaily ? 'SPELREGELS • DAILY' : (isOnline ? 'SPELREGELS • ONLINE' : 'SPELREGELS • TEGEN COMPUTER')),
+        intro: isGeneral
+            ? 'Jij en je tegenstander hebben allebei een eigen bord van 5x5. Om de beurt kiezen jullie een letter die je allebei ergens op je bord moet plaatsen. Wie maakt daarmee de meeste woorden horizontaal en verticaal?'
+            : (isOnline
+            ? 'Jij en je tegenstander hebben allebei een eigen bord van 5x5. Om de beurt kiezen jullie een letter die je allebei ergens op je bord moet plaatsen. Wie maakt daarmee de meeste woorden horizontaal en verticaal?'
+            : 'Jij en de computer hebben allebei een eigen bord van 5x5. Om de beurt kiezen jullie een letter die je allebei ergens op je bord moet plaatsen. Wie maakt daarmee de meeste woorden horizontaal en verticaal?'),
+        startText: isGeneral
+            ? 'Jullie beginnen beiden met dezelfde 2 of 3 random letters.'
+            : (isDaily
+            ? 'Jullie beginnen beiden met dezelfde 2 random letters.'
+            : 'Jullie beginnen beiden met dezelfde 3 random letters.'),
+        extraDailyText: (isDaily || isGeneral)
+            ? 'De computer kiest dezelfde reeks letters, dus iedereen die de Daily speelt heeft dezelfde kansen! Wie haalt de hoogste score van de dag?'
+            : ''
+    };
+}
+
+function renderRulesModal(mode = 'single', options = {}) {
+    const { showSkip = false, primaryLabel = 'BEGREPEN' } = options;
+    const cfg = getRulesTextConfig(mode);
+
+    const titleEl = document.getElementById('rules-modal-title');
+    const bodyEl = document.getElementById('rules-modal-body');
+    const skipWrap = document.getElementById('rules-skip-wrap');
+    const skipCheckbox = document.getElementById('rules-skip-checkbox');
+    const primaryBtn = document.getElementById('rules-primary-btn');
+
+    titleEl.textContent = cfg.title;
+    bodyEl.innerHTML = `
+        <p>${cfg.intro}</p>
+        <p class="rules-list"><strong>Start:</strong> ${cfg.startText}</p>
+        <div class="rules-list" style="line-height:1.6; margin-bottom:8px;">
+            <strong>Punten:</strong><br>
+            • 3 letters = <span style="color:var(--easy)">5 pnt</span><br>
+            • 4 letters = <span style="color:var(--medium)">10 pnt</span><br>
+            • 5 letters = <span style="color:var(--hard)">15 pnt</span>
+        </div>
+        ${cfg.extraDailyText ? `<p class="rules-list"><strong>Extra Daily regel:</strong> ${cfg.extraDailyText}</p>` : ''}
+    `;
+
+    skipWrap.style.display = showSkip ? 'inline-flex' : 'none';
+    skipCheckbox.checked = showSkip ? localStorage.getItem(RULES_SKIP_STORAGE_KEY) === '1' : false;
+    primaryBtn.textContent = primaryLabel;
+}
+
+function openRules(mode = 'general') {
+    rulesContinueCallback = null;
+    renderRulesModal(mode, { showSkip: false, primaryLabel: 'BEGREPEN' });
+    document.getElementById('rules-modal').style.display = 'flex';
+}
+
+function openPreGameRules(mode, onContinue) {
+    rulesContinueCallback = typeof onContinue === 'function' ? onContinue : null;
+    renderRulesModal(mode, { showSkip: true, primaryLabel: 'START SPEL' });
+    document.getElementById('rules-modal').style.display = 'flex';
+}
+
+function closeRules() {
+    document.getElementById('rules-modal').style.display = 'none';
+    rulesContinueCallback = null;
+}
+
+function handleRulesPrimaryAction() {
+    const skipCheckbox = document.getElementById('rules-skip-checkbox');
+    if (skipCheckbox) {
+        localStorage.setItem(RULES_SKIP_STORAGE_KEY, skipCheckbox.checked ? '1' : '0');
+    }
+
+    const callback = rulesContinueCallback;
+    document.getElementById('rules-modal').style.display = 'none';
+    rulesContinueCallback = null;
+    if (typeof callback === 'function') callback();
+}
+
+function runWithPreGameRules(mode, startAction) {
+    if (localStorage.getItem(RULES_SKIP_STORAGE_KEY) === '1') {
+        startAction();
+        return;
+    }
+    openPreGameRules(mode, startAction);
+}
+
+function openChecker() {
+    document.getElementById('checker-modal').style.display = 'flex';
+    document.getElementById('checker-input').value = '';
+    document.getElementById('checker-result').innerHTML = '';
+    document.getElementById('checker-input').focus();
+}
 function closeChecker() { document.getElementById('checker-modal').style.display = 'none'; }
 
 function checkInputWord() {
@@ -1401,35 +1560,37 @@ function hideOnlineLobby() {
 }
 
 async function startDailyMode() {
-    ensureUsername(async () => {
-        const isReady = await ensureFirebaseAuthReady();
-        if (!isReady) {
-            showFlashMessage('Daily', 'Nog geen Firebase login');
-            return;
-        }
-
-        const uid = window.currentUser.uid;
-        const dateKey = getUtcDateKey();
-        const enforceDailyLimit = isDailyAttemptLimitEnabled && !isDailyAdminBypassActive();
-
-        try {
-            if (enforceDailyLimit) {
-                const playedState = await hasPlayedDaily(dateKey, uid);
-                if (playedState.played) {
-                    const result = playedState.data || {};
-                    const score = result.playerScore ?? '-';
-                    const wonText = result.won ? 'Gewonnen' : 'Verloren';
-                    showFlashMessage('Daily al gespeeld', `${wonText} • Score ${score}`, 2600);
-                    return;
-                }
+    runWithPreGameRules('daily', () => {
+        ensureUsername(async () => {
+            const isReady = await ensureFirebaseAuthReady();
+            if (!isReady) {
+                showFlashMessage('Daily', 'Nog geen Firebase login');
+                return;
             }
 
-            const puzzle = await getOrCreateDailyPuzzle(dateKey);
-            initializeDailyGame(puzzle, dateKey);
-        } catch (e) {
-            console.error('Daily start fout:', e);
-            showFlashMessage('Daily', 'Daily puzzel kon niet laden');
-        }
+            const uid = window.currentUser.uid;
+            const dateKey = getUtcDateKey();
+            const enforceDailyLimit = isDailyAttemptLimitEnabled && !isDailyAdminBypassActive();
+
+            try {
+                if (enforceDailyLimit) {
+                    const playedState = await hasPlayedDaily(dateKey, uid);
+                    if (playedState.played) {
+                        const result = playedState.data || {};
+                        const score = result.playerScore ?? '-';
+                        const wonText = result.won ? 'Gewonnen' : 'Verloren';
+                        showFlashMessage('Daily al gespeeld', `${wonText} • Score ${score}`, 2600);
+                        return;
+                    }
+                }
+
+                const puzzle = await getOrCreateDailyPuzzle(dateKey);
+                initializeDailyGame(puzzle, dateKey);
+            } catch (e) {
+                console.error('Daily start fout:', e);
+                showFlashMessage('Daily', 'Daily puzzel kon niet laden');
+            }
+        });
     });
 }
 
@@ -1451,7 +1612,6 @@ function initializeDailyGame(puzzle, dateKey) {
     aiDifficulty = 'hard';
     opponentName = 'Comp.';
     finalTurnProcessed = false;
-    finaleShown = false;
     isAiProcessing = false;
     pendingLetter = null;
     activeCellIndex = null;
@@ -1503,8 +1663,10 @@ async function ensureFirebaseAuthReady() {
 }
 
 async function prepareOnlineGame() {
-    ensureUsername(() => {
-        createFirebaseGame();
+    runWithPreGameRules('online', () => {
+        ensureUsername(() => {
+            createFirebaseGame();
+        });
     });
 }
 
@@ -1518,12 +1680,17 @@ async function createFirebaseGame() {
 
     const uid = window.currentUser.uid;
     
-    const p1Grid = Array(25).fill(""); const p2Grid = Array(25).fill("");
-    const l1 = getWeightedLetter(); const l2 = getWeightedLetter();
-    let p1_pos1 = Math.floor(Math.random() * 25); let p1_pos2 = Math.floor(Math.random() * 25);
-    while(p1_pos2 === p1_pos1) p1_pos2 = Math.floor(Math.random() * 25);
-    p1Grid[p1_pos1] = l1; p1Grid[p1_pos2] = l2;
-    p2Grid[p1_pos1] = l1; p2Grid[p1_pos2] = l2;
+    const p1Grid = Array(25).fill("");
+    const p2Grid = Array(25).fill("");
+    const startLetters = [getWeightedLetter(), getWeightedLetter(), getWeightedLetter()];
+    const startPositions = getUniqueRowColStartPositions(3);
+
+    for (let i = 0; i < startLetters.length; i++) {
+        const pos = startPositions[i];
+        const letter = startLetters[i];
+        p1Grid[pos] = letter;
+        p2Grid[pos] = letter;
+    }
 
     try {
         const docRef = await addDoc(collection(window.db, "games"), {
@@ -1587,12 +1754,14 @@ function copyGameLink() {
 
 // --- ONLINE GUEST FLOW ---
 function handleGuestEntry(gameId) {
-    isSinglePlayer = false;
-    gameMode = 'online';
-    updateSimulationButton();
-    document.getElementById('start-screen').style.display = 'none'; 
-    ensureUsername(() => {
-        joinFirebaseGameById(gameId);
+    runWithPreGameRules('online', () => {
+        isSinglePlayer = false;
+        gameMode = 'online';
+        updateSimulationButton();
+        document.getElementById('start-screen').style.display = 'none'; 
+        ensureUsername(() => {
+            joinFirebaseGameById(gameId);
+        });
     });
 }
 
@@ -1698,11 +1867,10 @@ async function onlineSimulationTick() {
                 const p1Count = p1Grid.filter(c => c !== "").length;
                 const p2Count = p2Grid.filter(c => c !== "").length;
 
-                if (p1Count === 24 && p2Count === 24) {
-                    const p1WinChance = calculateWinProbabilityValue(p1Grid, p2Grid);
-                    nextTurn = p1WinChance > 50 ? guestId : hostId;
-                } else if (placerGrid.filter(c => c !== "").length >= 25) {
+                if (p1Count >= 25 && p2Count >= 25) {
                     nextTurn = 'FINISHED';
+                } else {
+                    nextTurn = placerIsHost ? hostId : guestId;
                 }
             }
         } else {
@@ -1801,7 +1969,6 @@ function simulatePendingPlacementStep() {
     activeCellIndex = null;
 
     const myCount = myGrid.filter(x => x !== "").length;
-    const oppCount = opponentGrid.filter(x => x !== "").length;
 
     if (myCount >= 25) {
         updateUI("SIMULATIE: laatste letter geplaatst...");
@@ -1817,22 +1984,8 @@ function simulatePendingPlacementStep() {
         return;
     }
 
-    if (myCount === 24 && oppCount === 24) {
-        const prob = calculateWinProbabilityValue(myGrid, opponentGrid);
-        if (prob > 50) {
-            isMyPickTurn = false;
-            simulationAwaitingAiPick = true;
-            updateUI("SIMULATIE: finale, computer kiest laatste letter...");
-        } else {
-            isMyPickTurn = true;
-            simulationAwaitingAiPick = false;
-            updateUI("SIMULATIE: finale, speler kiest laatste letter...");
-        }
-        updateWinChanceVisualization();
-        return;
-    }
-
     isMyPickTurn = true;
+    simulationAwaitingAiPick = false;
     updateWinChanceVisualization();
     updateUI("SIMULATIE: speler aan zet");
 }
@@ -1979,47 +2132,49 @@ function toggleSinglePlayerSimulation() {
 
 // --- SINGLE PLAYER ---
 function startSinglePlayer(difficulty) {
-    ensureUsername(() => {
-        if (unsubscribeGame) {
-            unsubscribeGame();
-            unsubscribeGame = null;
-        }
-        currentGameId = null;
-        myRoleId = null;
-        window.activeTurnPlayerId = null;
-        stopOnlineSimulation();
-        stopSinglePlayerSimulation();
-        isSinglePlayer = true;
-        gameMode = 'single';
-        currentDailyPuzzle = null;
-        currentDailyDateKey = null;
-        dailyAiSequenceIndex = 0;
-        dailyGameFinished = false;
-        lastDailyResultPayload = null;
-        aiDifficulty = difficulty; opponentName = "Computer";
-        finalTurnProcessed = false; finaleShown = false; isAiProcessing = false;
-        setupStartGrids(false); 
-        const iStart = Math.random() > 0.5;
-        document.getElementById('start-screen').style.display = 'none';
-        gameUi.style.display = 'block';
-        winChanceContainer.style.display = 'block';
-        document.getElementById('daily-share-controls').style.display = 'none';
-        
-        showFlashMessage("MUNT OPGOOIEN...", "🪙", 1500);
-        setTimeout(() => {
-            if (iStart) {
-                isMyPickTurn = true;
-                showFlashMessage("Jij Wint!", "JIJ BEGINT");
-                updateUI("JIJ MAG BEGINNEN!");
-            } else {
-                isMyPickTurn = false;
-                showFlashMessage("Helaas!", "COMPUTER BEGINT");
-                updateUI("COMPUTER MAG EERST...");
-                handleAiStart();
+    runWithPreGameRules('single', () => {
+        ensureUsername(() => {
+            if (unsubscribeGame) {
+                unsubscribeGame();
+                unsubscribeGame = null;
             }
-        }, 1500);
-        updateWinChanceVisualization();
-        updateGameControlButtons();
+            currentGameId = null;
+            myRoleId = null;
+            window.activeTurnPlayerId = null;
+            stopOnlineSimulation();
+            stopSinglePlayerSimulation();
+            isSinglePlayer = true;
+            gameMode = 'single';
+            currentDailyPuzzle = null;
+            currentDailyDateKey = null;
+            dailyAiSequenceIndex = 0;
+            dailyGameFinished = false;
+            lastDailyResultPayload = null;
+            aiDifficulty = difficulty; opponentName = "Computer";
+            finalTurnProcessed = false; isAiProcessing = false;
+            setupStartGrids(false); 
+            const iStart = Math.random() > 0.5;
+            document.getElementById('start-screen').style.display = 'none';
+            gameUi.style.display = 'block';
+            winChanceContainer.style.display = 'block';
+            document.getElementById('daily-share-controls').style.display = 'none';
+            
+            showFlashMessage("MUNT OPGOOIEN...", "🪙", 1500);
+            setTimeout(() => {
+                if (iStart) {
+                    isMyPickTurn = true;
+                    showFlashMessage("Jij Wint!", "JIJ BEGINT");
+                    updateUI("JIJ MAG BEGINNEN!");
+                } else {
+                    isMyPickTurn = false;
+                    showFlashMessage("Helaas!", "COMPUTER BEGINT");
+                    updateUI("COMPUTER MAG EERST...");
+                    handleAiStart();
+                }
+            }, 1500);
+            updateWinChanceVisualization();
+            updateGameControlButtons();
+        });
     });
 }
 
@@ -2161,11 +2316,6 @@ function joinFirebaseGameById(gameId) {
              return;
         }
 
-        // Trigger finale visual
-        if (myCount === 24 && oppCount === 24 && !finaleShown) {
-             checkFinaleScenario();
-        }
-
         if (data.status === 'playing') {
             if (data.turn === uid) {
                 // FIX: VEILIGHEID: Als het mijn beurt is, mag er nooit een AI-lock op zitten
@@ -2180,7 +2330,7 @@ function joinFirebaseGameById(gameId) {
 }
 
 // -------------------------------------------------------------
-// --- AANGEPASTE LOGICA (UI FIX & FINALE FIX) ---
+// --- AANGEPASTE LOGICA ---
 // -------------------------------------------------------------
 
 async function sendMoveToFirebase(index, char, isPlacingPending) {
@@ -2199,13 +2349,7 @@ async function sendMoveToFirebase(index, char, isPlacingPending) {
 
     const myGridKey = myRoleId === 'host' ? 'p1Grid' : 'p2Grid';
     const updates = { [myGridKey]: myGrid };
-    
-    // We moeten even checken wie de opponent is voor updates
-    // (We halen dit uit memory variabelen voor snelheid, snapshot update volgt vanzelf)
-    const oppId = (myRoleId === 'host') ? currentGameId.guestId : currentGameId.hostId;
-    
-    // Om de beurt correct te bepalen hebben we soms de huidige DB state nodig,
-    // maar we kunnen logica baseren op onze actie.
+
     const gameSnap = await getDoc(doc(window.db, "games", currentGameId));
     const gData = gameSnap.data();
     const currentOppId = myRoleId === 'host' ? gData.guestId : gData.hostId;
@@ -2217,37 +2361,18 @@ async function sendMoveToFirebase(index, char, isPlacingPending) {
     const oppCount = opponentGrid.filter(x => x !== "").length;
 
     if (!isPlacingPending) {
-        // SCENARIO A: IK HEB ZELF EEN LETTER GEKOZEN
-        // Nu is de ander aan de beurt om deze te plaatsen
         nextPending = char;
         nextTurn = currentOppId;
     } else {
-        // SCENARIO B: IK HEB EEN VERPLICHTE (PENDING) LETTER GEPLAATST
         nextPending = null;
-        
-        // CHECK 1: FINALE TRIGGER (Beide precies 24 letters)
-        if (myCount === 24 && oppCount === 24) {
-            const prob = calculateWinProbabilityValue(myGrid, opponentGrid);
-            // Degene die achter staat (laagste win kans) mag kiezen
-            // Als mijn kans > 50 is, sta ik voor, dus mag de ander kiezen.
-            if (prob > 50) nextTurn = currentOppId; 
-            else nextTurn = uid;
-        } 
-        // CHECK 2: EINDE SPEL (Ik heb net de 25e geplaatst)
-        else if (myCount === 25) {
-             nextTurn = "FINISHED";
-        }
-        // CHECK 3: NORMAAL SPELVERLOOP
-        else {
-            // FIX: Ik heb net een verplicht lettertje gelegd.
-            // Nu is het MIJN beurt om een nieuwe letter te kiezen.
-            // De beurt moet dus NIET naar de opponent, maar bij MIJ blijven.
-            nextTurn = uid; 
-        }
+
+        if (myCount >= 25 && oppCount >= 25) nextTurn = "FINISHED";
+        else nextTurn = uid;
     }
 
     updates.pendingLetter = nextPending;
     updates.turn = nextTurn;
+    updates.status = nextTurn === 'FINISHED' ? 'finished' : 'playing';
     await updateDoc(doc(window.db, "games", currentGameId), updates);
 }
 function createGridUI() {
@@ -2261,53 +2386,58 @@ function createGridUI() {
 }
 
 function setupStartGrids(asymmetric) {
-    myGrid = Array(25).fill(""); opponentGrid = Array(25).fill("");
-    let l1 = getWeightedLetter(); let l2 = getWeightedLetter();
-    let p1_pos1 = Math.floor(Math.random() * 25); let p1_pos2 = Math.floor(Math.random() * 25);
-    while(p1_pos2 === p1_pos1) p1_pos2 = Math.floor(Math.random() * 25);
-    let p2_pos1 = asymmetric ? Math.floor(Math.random() * 25) : p1_pos1;
-    let p2_pos2 = asymmetric ? Math.floor(Math.random() * 25) : p1_pos2;
-    if(asymmetric) { while(p2_pos2 === p2_pos1) p2_pos2 = Math.floor(Math.random() * 25); }
-    placeInGrid(myGrid, p1_pos1, l1); placeInGrid(myGrid, p1_pos2, l2);
-    placeInGrid(opponentGrid, p2_pos1, l1); placeInGrid(opponentGrid, p2_pos2, l2);
+    myGrid = Array(25).fill("");
+    opponentGrid = Array(25).fill("");
+
+    const startLetters = [getWeightedLetter(), getWeightedLetter(), getWeightedLetter()];
+    const myStartPositions = getUniqueRowColStartPositions(3);
+    const opponentStartPositions = asymmetric ? getUniqueRowColStartPositions(3) : myStartPositions;
+
+    for (let i = 0; i < startLetters.length; i++) {
+        const letter = startLetters[i];
+        placeInGrid(myGrid, myStartPositions[i], letter);
+        placeInGrid(opponentGrid, opponentStartPositions[i], letter);
+    }
+
     renderGrid();
 }
-function placeInGrid(grid, index, letter) { grid[index] = letter; }
 
-function checkFinaleScenario() {
-    if (gameMode === 'daily') return false;
-    const currentCount = myGrid.filter(x => x !== "").length;
-    const oppCount = opponentGrid.filter(x => x !== "").length;
-    
-    // ALLEEN als BEIDE spelers precies 24 letters hebben
-    if (currentCount === 24 && oppCount === 24 && !finaleShown) {
-        finaleShown = true; 
-        const prob = calculateWinProbabilityValue(myGrid, opponentGrid);
-        let msgContent = "";
-        
-        if (prob > 50) {
-            isMyPickTurn = false; 
-            
-            // FIX: ALLEEN LOCKEN BIJ SP
-            if (isSinglePlayer) {
-                isAiProcessing = true; 
-            }
-            // ------------------------
+function getUniqueRowColStartPositions(count = 3) {
+    const positions = [];
+    const usedRows = new Set();
+    const usedCols = new Set();
+    let attempts = 0;
 
-            msgContent = "Jij staat voor... Tegenstander kiest laatste!";
-            if (isSinglePlayer) {
-                setTimeout(() => { handleAiReaction(null); }, 2500); 
-            }
-        } else {
-            isMyPickTurn = true; 
-            msgContent = "Jij staat achter... Jij kiest de laatste!";
-        }
-        showFlashMessage("FINALE!", msgContent, 2000); 
-        updateUI();
-        return true; 
+    while (positions.length < count && attempts < 1000) {
+        const index = Math.floor(Math.random() * 25);
+        const row = Math.floor(index / 5);
+        const col = index % 5;
+        attempts++;
+
+        if (usedRows.has(row) || usedCols.has(col) || positions.includes(index)) continue;
+
+        positions.push(index);
+        usedRows.add(row);
+        usedCols.add(col);
     }
-    return false; 
+
+    if (positions.length < count) {
+        for (let row = 0; row < 5 && positions.length < count; row++) {
+            if (usedRows.has(row)) continue;
+            for (let col = 0; col < 5 && positions.length < count; col++) {
+                if (usedCols.has(col)) continue;
+                const index = row * 5 + col;
+                if (positions.includes(index)) continue;
+                positions.push(index);
+                usedRows.add(row);
+                usedCols.add(col);
+            }
+        }
+    }
+
+    return positions;
 }
+function placeInGrid(grid, index, letter) { grid[index] = letter; }
 
 function handleCellClick(index) {
     if (isSimulationRunning || isOnlineSimulationRunning) return;
@@ -2323,8 +2453,9 @@ function handleCellClick(index) {
 
     if (isSinglePlayer) {
         if (pendingLetter) {
-            performMoveSinglePlayer(index, pendingLetter);
+            const letterToPlace = pendingLetter;
             pendingLetter = null;
+            performMoveSinglePlayer(index, letterToPlace);
             isMyPickTurn = false;
             updateUI();
 
@@ -2343,15 +2474,13 @@ function handleCellClick(index) {
                 updateUI('DAILY: JIJ KIEST DE VOLGENDE LETTER');
                 return;
             }
-
-            if (checkFinaleScenario()) return; 
             isMyPickTurn = true; updateUI();
-        } else if (isMyPickTurn) { activeCellIndex = index; updateUI(); }
+        } else if (isMyPickTurn) { activeCellIndex = index; renderGrid(); updateUI(); }
     } else {
         if (pendingLetter) {
             sendMoveToFirebase(index, pendingLetter, true);
         } else if (isMyPickTurn) { 
-            activeCellIndex = index; updateUI(); 
+            activeCellIndex = index; renderGrid(); updateUI(); 
         }
     }
 }
@@ -2377,7 +2506,6 @@ function handleKey(letter) {
         if (gameMode !== 'daily') updateWinChanceVisualization();
         
         const myCount = myGrid.filter(x=>x!=="").length;
-        const oppCount = opponentGrid.filter(x=>x!=="").length;
 
         if (myCount >= 25) {
              if(!finalTurnProcessed) { 
@@ -2388,9 +2516,6 @@ function handleKey(letter) {
            } else if (gameMode === 'daily') {
                handleDailyAiReaction();
                return;
-        } else if (myCount === 24 && oppCount === 24) {
-             if (checkFinaleScenario()) return;
-             handleAiReaction(null);
         } else {
             handleAiReaction(null);
         }
@@ -2437,6 +2562,7 @@ function handleDailyAiReaction() {
             pendingLetter = nextLetter;
             isMyPickTurn = false;
             isAiProcessing = false;
+            renderGrid();
             updateUI('DAILY: PLAATS DE LETTER');
         } else {
             if (!finalTurnProcessed) {
@@ -2473,11 +2599,22 @@ function handleAiReaction(letterFromPlayer) {
         let aiPick;
         if (aiDifficulty === 'hard') aiPick = getBestPickAndPositionHeuristic(opponentGrid); 
         else aiPick = getBestPickAndPositionHeuristic(opponentGrid);
+
+        if (aiPick.index === -1) {
+            if (!finalTurnProcessed) {
+                finalTurnProcessed = true;
+                renderGrid();
+                setTimeout(finishGame, 1500);
+            }
+            return;
+        }
+
         opponentGrid[aiPick.index] = aiPick.letter;
         pendingLetter = aiPick.letter;
         
         isMyPickTurn = false; 
         isAiProcessing = false; // UNLOCK HIER PAS
+        renderGrid();
         updateWinChanceVisualization(); updateUI();
     }, 500);
 }
@@ -2512,8 +2649,25 @@ function getBestPositionForLetter(grid, letter) {
     return { index: bestIdx };
 }
 
+function canPlacePendingLetterNow() {
+    if (!pendingLetter) return false;
+    if (isSinglePlayer) return true;
+    return window.activeTurnPlayerId === window.currentUser.uid;
+}
+
 function updateUI(overrideMsg, isThinking) {
     instructionText.style.whiteSpace = "normal";
+
+    const shouldPlacePendingNow = canPlacePendingLetterNow();
+    if (shouldPlacePendingNow && lastAnnouncedPendingLetter !== pendingLetter) {
+        const picker = gameMode === 'online' ? 'Tegenstander' : 'Computer';
+        showFlashMessage('LETTER GEKOZEN', `${picker} koos: ${pendingLetter}`, 1400);
+        lastAnnouncedPendingLetter = pendingLetter;
+    }
+    if (!pendingLetter) {
+        lastAnnouncedPendingLetter = null;
+    }
+
     if (isThinking) { 
         instructionText.innerText = overrideMsg; 
         instructionText.style.color = "var(--text-muted)";
@@ -2536,54 +2690,7 @@ function updateUI(overrideMsg, isThinking) {
     }
     // -----------------------------------------------
 
-    // START SITUATIE (2 letters gevuld)
-    if (filledCount === 2) {
-        instructionText.style.fontSize = "0.95rem"; 
-        instructionText.style.color = "var(--text-main)";
-
-        if (pendingLetter) {
-            instructionText.innerText = `2 random letters zijn al geplaatst. Je tegenstander heeft nu op zijn bord de letter ${pendingLetter} geplaatst. Jij moet die ook op jouw bord plaatsen.`;
-            letterDisplay.innerText = pendingLetter;
-            document.body.classList.add("highlight-empty");
-            keyboard.style.display = 'none';
-            return;
-        } else if (isMyPickTurn) {
-            if (gameMode === 'daily') {
-                instructionText.innerText = "Plaats om de beurt ergens een letter. De computer kiest voor iedereen dezelfde letters. Wie haalt de hoogste score van de dag?\nSelecteer een vakje en plaats daar een letter.";
-                instructionText.style.whiteSpace = "pre-line";
-            } else {
-                instructionText.innerText = "2 random startletters zijn al geplaatst. Jij bent nu aan de beurt. Selecteer een vakje en plaats daar een letter.";
-            }
-            letterDisplay.innerText = "?";
-            document.body.classList.remove("highlight-empty");
-        }
-    }
-
-    // TWEEDE BEURT (3 letters gevuld)
-    if (filledCount === 3) {
-        instructionText.style.fontSize = "0.9rem";
-        instructionText.style.color = "var(--text-main)";
-
-        if (pendingLetter) {
-            if (gameMode === 'daily') {
-                instructionText.innerText = `De Computer heeft jouw letter geplaatst en in zijn beurt de letter ${pendingLetter} gekozen. Plaats deze nu op jouw bord`;
-            } else {
-                instructionText.innerText = `Je tegenstander heeft jouw letter geplaatst en heeft in zijn beurt de letter ${pendingLetter} gekozen. Plaats deze nu op jouw bord.`;
-            }
-            letterDisplay.innerText = pendingLetter;
-            document.body.classList.add("highlight-empty");
-            keyboard.style.display = 'none';
-            return;
-        } else if (isMyPickTurn) {
-            instructionText.innerText = "Nu mag jij de letter kiezen. Selecteer een vakje en plaats daar een letter. Zo gaan we om en om.";
-            letterDisplay.innerText = "?";
-            document.body.classList.remove("highlight-empty");
-        }
-    }
-
-    if (filledCount > 3) {
-        instructionText.style.fontSize = "1rem";
-    }
+    instructionText.style.fontSize = "1rem";
 
     if (pendingLetter) {
         // FIX: In SP is het altijd 'jouw beurt' als er een pending letter is
@@ -2594,14 +2701,12 @@ function updateUI(overrideMsg, isThinking) {
             isMyTurn = window.activeTurnPlayerId === window.currentUser.uid;
         }
         
-        if (filledCount > 3) {
-            if (isMyTurn) {
-                instructionText.innerText = "PLAATS DE LETTER"; 
-                instructionText.style.color = "var(--primary)";
-            } else {
-                instructionText.innerText = "TEGENSTANDER IS AAN ZET...";
-                instructionText.style.color = "var(--text-muted)";
-            }
+        if (isMyTurn) {
+            instructionText.innerText = "PLAATS DE LETTER"; 
+            instructionText.style.color = "var(--primary)";
+        } else {
+            instructionText.innerText = "TEGENSTANDER IS AAN ZET...";
+            instructionText.style.color = "var(--text-muted)";
         }
         
         letterDisplay.innerText = isMyTurn ? pendingLetter : "...";
@@ -2623,10 +2728,8 @@ function updateUI(overrideMsg, isThinking) {
             instructionText.style.fontSize = "1rem"; 
             keyboard.style.display = 'flex'; 
         } else { 
-            if (filledCount > 3) {
-                instructionText.innerText = "KIES EEN VAKJE"; 
-                instructionText.style.color = "var(--text-main)";
-            }
+            instructionText.innerText = "KIES EEN VAKJE"; 
+            instructionText.style.color = "var(--text-main)";
             keyboard.style.display = 'none'; 
         }
     } else {
@@ -2642,10 +2745,11 @@ function updateUI(overrideMsg, isThinking) {
 function renderGrid() {
     for (let i = 0; i < 25; i++) {
         const cell = document.getElementById(`cell-${i}`);
+        const hasLetter = myGrid[i] !== "";
         cell.innerText = myGrid[i];
-        cell.className = `cell ${myGrid[i] !== "" ? 'filled' : ''}`;
+        cell.className = `cell ${hasLetter ? 'filled' : ''}`;
         cell.style.borderColor = "";
-        if (activeCellIndex === i) cell.style.borderColor = "var(--secondary)";
+        if (activeCellIndex === i && !hasLetter) cell.classList.add('selected-target');
     }
     updateGameControlButtons();
 }
@@ -3476,9 +3580,9 @@ function handleDebugAutofill() {
         let oppEmptyIdx = opponentGrid.findIndex(c => c === "");
         if (oppEmptyIdx !== -1) opponentGrid[oppEmptyIdx] = letter;
     }
-    pendingLetter = null; isMyPickTurn = true; activeCellIndex = null; finaleShown = false; 
+    pendingLetter = null; isMyPickTurn = true; activeCellIndex = null; 
     renderGrid(); updateWinChanceVisualization(); updateUI("Autofill klaar! Nog 3 beurten...");
-    showFlashMessage("DEBUG", "Doorgespoeld naar de finale! ⏩");
+    showFlashMessage("DEBUG", "Doorgespoeld naar eindfase! ⏩");
 }
 </script>
 </body>
