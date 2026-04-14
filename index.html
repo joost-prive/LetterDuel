@@ -8,6 +8,7 @@
     
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap" rel="stylesheet">
     <script src="words.js"></script>
+    <script src="gameLogic.js"></script>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
@@ -709,29 +710,16 @@
 
 <script>
 // --- WOORDENLIJST LOADING ---
-let wordSet = new Set();
+// WEIGHTED_LETTERS en word-functies komen uit gameLogic.js
 const FALLBACK_LIST = ["APPEL", "PEREN", "TAFEL", "STOEL", "WATER", "LATER", "BETER", "VUREN", "GROEN", "DOPEN", "LOPEN", "KOPEN", "HOPEN", "KAT", "HOND", "VIS", "BOOM", "ROOS", "KAAS", "BOOT", "WIND", "LAND", "ZAND", "GOUD", "HOUT"];
 
 if (typeof RAW_WORD_LIST !== 'undefined') {
     console.log("Lokale words.js gevonden!");
-    wordSet = new Set(RAW_WORD_LIST);
+    initWordSet(RAW_WORD_LIST);
 } else {
     console.warn("Geen words.js gevonden, gebruik fallback.");
-    wordSet = new Set(FALLBACK_LIST);
+    initWordSet(FALLBACK_LIST);
 }
-
-let wordsByLength = { 3: [], 4: [], 5: [] }; 
-if(wordSet.size > 0) {
-    const arr = Array.from(wordSet);
-    wordsByLength[5] = arr.filter(w => w.length === 5);
-    wordsByLength[4] = arr.filter(w => w.length === 4);
-    wordsByLength[3] = arr.filter(w => w.length === 3);
-}
-
-const WEIGHTED_LETTERS = [
-    { chars: "AEION", weight: 35 }, { chars: "DRSTU", weight: 30 },
-    { chars: "BGHJK", weight: 20 }, { chars: "LMPFH", weight: 10 }, { chars: "JVXYZQ", weight: 5 }
-];
 
 // --- STATE ---
 let currentGameId = null;
@@ -884,86 +872,6 @@ function getUtcDateKey(date = new Date()) {
     const m = String(date.getUTCMonth() + 1).padStart(2, '0');
     const d = String(date.getUTCDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
-}
-
-function hashStringToSeed(input) {
-    let hash = 2166136261;
-    for (let i = 0; i < input.length; i++) {
-        hash ^= input.charCodeAt(i);
-        hash = Math.imul(hash, 16777619);
-    }
-    return (hash >>> 0) || 123456789;
-}
-
-function createSeededRandom(seed) {
-    let value = seed >>> 0;
-    return function seeded() {
-        value += 0x6D2B79F5;
-        let t = value;
-        t = Math.imul(t ^ (t >>> 15), t | 1);
-        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-}
-
-function pickWeightedLetterFromRng(rng) {
-    const totalWeight = WEIGHTED_LETTERS.reduce((sum, group) => sum + group.weight, 0);
-    let randomNum = rng() * totalWeight;
-    for (let group of WEIGHTED_LETTERS) {
-        if (randomNum < group.weight) {
-            return group.chars.charAt(Math.floor(rng() * group.chars.length));
-        }
-        randomNum -= group.weight;
-    }
-    return 'E';
-}
-
-function pickWeightedLetterFromGroups(rng, groups) {
-    const totalWeight = groups.reduce((sum, group) => sum + group.weight, 0);
-    let randomNum = rng() * totalWeight;
-    for (let group of groups) {
-        if (randomNum < group.weight) {
-            return group.chars.charAt(Math.floor(rng() * group.chars.length));
-        }
-        randomNum -= group.weight;
-    }
-    return 'E';
-}
-
-function buildDailyPuzzle(dateKey) {
-    const seed = hashStringToSeed(`LETTERDUEL-DAILY-${dateKey}`);
-    const rng = createSeededRandom(seed);
-
-    const startLetter1 = pickWeightedLetterFromRng(rng);
-    const startLetter2 = pickWeightedLetterFromRng(rng);
-    let startPos1 = Math.floor(rng() * 25);
-    let startPos2 = Math.floor(rng() * 25);
-    while (startPos2 === startPos1) {
-        startPos2 = Math.floor(rng() * 25);
-    }
-
-    const aiSequence = [];
-    const easyGroups = WEIGHTED_LETTERS.slice(0, 2);
-    const withoutHardest = WEIGHTED_LETTERS.slice(0, 4);
-    for (let i = 0; i < 11; i++) {
-        let groups = WEIGHTED_LETTERS;
-        if (i >= 7) {
-            groups = withoutHardest;
-        }
-        if (i >= 9) {
-            groups = easyGroups;
-        }
-        aiSequence.push(pickWeightedLetterFromGroups(rng, groups));
-    }
-
-    return {
-        dateKey,
-        startLetters: [startLetter1, startLetter2],
-        startPositions: [startPos1, startPos2],
-        aiSequence,
-        createdAt: new Date(),
-        version: 1
-    };
 }
 
 async function getOrCreateDailyPuzzle(dateKey) {
@@ -1134,7 +1042,7 @@ function checkInputWord() {
     if (!input) return;
     resDiv.innerHTML = "";
     const resultBadge = document.createElement('span');
-    if (wordSet.has(input)) {
+    if (hasWord(input)) {
         resultBadge.className = 'valid-word';
         resultBadge.textContent = `✅ "${input}" is GELDIG`;
     } else {
@@ -2428,49 +2336,12 @@ function setupStartGrids(asymmetric) {
 
     for (let i = 0; i < startLetters.length; i++) {
         const letter = startLetters[i];
-        placeInGrid(myGrid, myStartPositions[i], letter);
-        placeInGrid(opponentGrid, opponentStartPositions[i], letter);
+        myGrid[myStartPositions[i]] = letter;
+        opponentGrid[opponentStartPositions[i]] = letter;
     }
 
     renderGrid();
 }
-
-function getUniqueRowColStartPositions(count = 3) {
-    const positions = [];
-    const usedRows = new Set();
-    const usedCols = new Set();
-    let attempts = 0;
-
-    while (positions.length < count && attempts < 1000) {
-        const index = Math.floor(Math.random() * 25);
-        const row = Math.floor(index / 5);
-        const col = index % 5;
-        attempts++;
-
-        if (usedRows.has(row) || usedCols.has(col) || positions.includes(index)) continue;
-
-        positions.push(index);
-        usedRows.add(row);
-        usedCols.add(col);
-    }
-
-    if (positions.length < count) {
-        for (let row = 0; row < 5 && positions.length < count; row++) {
-            if (usedRows.has(row)) continue;
-            for (let col = 0; col < 5 && positions.length < count; col++) {
-                if (usedCols.has(col)) continue;
-                const index = row * 5 + col;
-                if (positions.includes(index)) continue;
-                positions.push(index);
-                usedRows.add(row);
-                usedCols.add(col);
-            }
-        }
-    }
-
-    return positions;
-}
-function placeInGrid(grid, index, letter) { grid[index] = letter; }
 
 function handleCellClick(index) {
     if (isSimulationRunning || isOnlineSimulationRunning) return;
@@ -2652,36 +2523,6 @@ function handleAiReaction(letterFromPlayer) {
     }, 500);
 }
 
-function getBestPickAndPositionHeuristic(grid) {
-    let emptyIndices = grid.map((v, i) => v === "" ? i : null).filter(v => v !== null);
-    if(emptyIndices.length === 0) return {index: -1, letter: 'E'};
-    let bestMove = { index: emptyIndices[0], letter: 'E' };
-    let maxScore = -999;
-    const candidates = "ENATIRSLGD"; 
-    for (let char of candidates) {
-        for (let idx of emptyIndices) {
-            let simGrid = [...grid]; simGrid[idx] = char;
-            let points = calculatePoints(simGrid); 
-            points += (calculateDetailedPotential(simGrid) / 5); 
-            if (points > maxScore) { maxScore = points; bestMove = { index: idx, letter: char }; }
-        }
-    }
-    return bestMove;
-}
-
-function getBestPositionForLetter(grid, letter) {
-    let emptyIndices = grid.map((v, i) => v === "" ? i : null).filter(v => v !== null);
-    if (emptyIndices.length === 0) return { index: -1 };
-    let bestIdx = emptyIndices[0]; let maxScore = -1;
-    for (let idx of emptyIndices) {
-        let simGrid = [...grid]; simGrid[idx] = letter;
-        let score = calculatePoints(simGrid); 
-        score += (calculateDetailedPotential(simGrid) / 5);
-        if (score > maxScore) { maxScore = score; bestIdx = idx; }
-    }
-    return { index: bestIdx };
-}
-
 function canPlacePendingLetterNow() {
     if (!pendingLetter) return false;
     if (isSinglePlayer) return true;
@@ -2787,54 +2628,6 @@ function renderGrid() {
     updateGameControlButtons();
 }
 
-function calculatePoints(grid) {
-    let total = 0;
-    for (let r = 0; r < 5; r++) { let row = ""; for (let c = 0; c < 5; c++) row += grid[r*5 + c]; total += getLineScore(row); }
-    for (let c = 0; c < 5; c++) { let col = ""; for (let r = 0; r < 5; r++) col += grid[r*5 + c]; total += getLineScore(col); }
-    return total;
-}
-function getLineScore(str) {
-    if (wordSet.has(str)) return 15;
-    for (let i=0; i<=1; i++) if (wordSet.has(str.substring(i, i+4))) return 10;
-    for (let i=0; i<=2; i++) if (wordSet.has(str.substring(i, i+3))) return 5;
-    return 0;
-}
-
-function calculateDetailedPotential(grid) {
-    let totalPotential = 0; const GAP_PENALTY = 12; const POINTS = { 5: 15, 4: 10, 3: 5 };
-    const analyzeSegment = (segment) => {
-        const len = segment.length; const holes = segment.filter(c => c === "").length;
-        if (holes === 0 || holes === len) return 0;
-        let patternStr = "^"; segment.forEach(c => patternStr += (c === "" ? "." : c)); patternStr += "$";
-        const regex = new RegExp(patternStr);
-        const candidates = wordsByLength[len] || [];
-        let matchCount = 0; for (let w of candidates) { if (regex.test(w)) matchCount++; }
-        if (matchCount === 0) return 0;
-        return (matchCount / Math.pow(GAP_PENALTY, holes)) * POINTS[len];
-    };
-    const scanLine = (lineArr) => {
-        let lineScore = 0;
-        lineScore += analyzeSegment(lineArr); lineScore += analyzeSegment(lineArr.slice(0, 4)); lineScore += analyzeSegment(lineArr.slice(1, 5));
-        lineScore += analyzeSegment(lineArr.slice(0, 3)); lineScore += analyzeSegment(lineArr.slice(1, 4)); lineScore += analyzeSegment(lineArr.slice(2, 5));
-        return lineScore;
-    };
-    for (let r = 0; r < 5; r++) { let row = []; for (let c = 0; c < 5; c++) row.push(grid[r*5 + c]); totalPotential += scanLine(row); }
-    for (let c = 0; c < 5; c++) { let col = []; for (let r = 0; r < 5; r++) col.push(grid[r*5 + c]); totalPotential += scanLine(col); }
-    return totalPotential; 
-}
-
-function calculateWinProbabilityValue(myG, oppG) {
-    const filledCount = myG.filter(c => c !== "").length;
-    const progress = filledCount / 25;
-    const myScore = calculatePoints(myG); const oppScore = calculatePoints(oppG);
-    const myPotential = calculateDetailedPotential(myG); const oppPotential = calculateDetailedPotential(oppG);
-    const scoreWeight = 1 + (progress * 2); const potentialWeight = Math.max(0.1, 1.0 - progress);
-    const myTotal = (myScore * scoreWeight) + (myPotential * potentialWeight);
-    const oppTotal = (oppScore * scoreWeight) + (oppPotential * potentialWeight);
-    let pct = 50; if (myTotal + oppTotal > 0) pct = (myTotal / (myTotal + oppTotal)) * 100;
-    if (filledCount === 25) return pct; else return Math.max(1, Math.min(99, pct));
-}
-
 function updateWinChanceVisualization() {
     if (gameMode === 'daily') return;
     const canvas = document.getElementById('win-chance-canvas'); if (!canvas) return;
@@ -2850,35 +2643,6 @@ function updateWinChanceVisualization() {
     ctx.font = "800 14px 'Roboto', sans-serif"; ctx.textBaseline = "middle";
     ctx.fillStyle = "white"; ctx.textAlign = "left"; ctx.fillText(`JIJ: ${Math.round(pct)}%`, 10, h/2);
     ctx.textAlign = "right"; ctx.fillText(`${opponentName}: ${Math.round(100 - pct)}%`, w - 10, h/2);
-}
-
-function getScoringWords(grid) {
-    let highlights = [];
-    for (let r = 0; r < 5; r++) {
-        let rowStr = ""; for (let c = 0; c < 5; c++) rowStr += grid[r*5 + c];
-        let found = false;
-        if (wordSet.has(rowStr)) { highlights.push({type:'row', r, c:0, len:5}); found=true; }
-        if (!found && wordSet.has(rowStr.substring(0,4))) { highlights.push({type:'row', r, c:0, len:4}); found=true; }
-        if (!found && wordSet.has(rowStr.substring(1,5))) { highlights.push({type:'row', r, c:1, len:4}); found=true; }
-        if (!found) {
-            if (wordSet.has(rowStr.substring(0,3))) highlights.push({type:'row', r, c:0, len:3});
-            else if (wordSet.has(rowStr.substring(1,4))) highlights.push({type:'row', r, c:1, len:3});
-            else if (wordSet.has(rowStr.substring(2,5))) highlights.push({type:'row', r, c:2, len:3});
-        }
-    }
-    for (let c = 0; c < 5; c++) {
-        let colStr = ""; for (let r = 0; r < 5; r++) colStr += grid[r*5 + c];
-        let found = false;
-        if (wordSet.has(colStr)) { highlights.push({type:'col', r:0, c, len:5}); found=true; }
-        if (!found && wordSet.has(colStr.substring(0,4))) { highlights.push({type:'col', r:0, c, len:4}); found=true; }
-        if (!found && wordSet.has(colStr.substring(1,5))) { highlights.push({type:'col', r:1, c, len:4}); found=true; }
-        if (!found) {
-            if (wordSet.has(colStr.substring(0,3))) highlights.push({type:'col', r:0, c, len:3});
-            else if (wordSet.has(colStr.substring(1,4))) highlights.push({type:'col', r:1, c, len:3});
-            else if (wordSet.has(colStr.substring(2,5))) highlights.push({type:'col', r:2, c, len:3});
-        }
-    }
-    return highlights;
 }
 
 function buildShareGridSnapshot(grid) {
@@ -3563,16 +3327,6 @@ function renderMiniGridWithOutlines(gridData, gridId, rowScoresId, colScoresId) 
         const d = document.createElement('div'); d.className = 'mini-score-cell';
         const score = getLineScore(colStr); d.innerText = score > 0 ? score : "-"; colEl.appendChild(d); 
     }
-}
-
-function getWeightedLetter() {
-    const totalWeight = WEIGHTED_LETTERS.reduce((sum, group) => sum + group.weight, 0);
-    let randomNum = Math.random() * totalWeight;
-    for (let group of WEIGHTED_LETTERS) {
-        if (randomNum < group.weight) return group.chars.charAt(Math.floor(Math.random() * group.chars.length));
-        randomNum -= group.weight;
-    }
-    return "E";
 }
 
 async function handleScrambleStart() {

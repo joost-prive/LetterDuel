@@ -777,3 +777,6 @@ const RAW_WORD_LIST = [
   "ZWERM", "ZWETS", "ZWIEP", "ZWIER", "ZWIJG", "ZWIJM", "ZWIJN", "ZWIK", "ZWIKT", "ZWILK", "ZWIN", "ZWING",
   "ZWOEG", "ZWOEL", "ZWOER", "ZWOL", "ZWOLG", "ZWOM", "ZWOOR", "ZZP", "ZZZ"
 ];
+
+// Allow importing in Node.js (for tests) while remaining a plain script in the browser
+if (typeof module !== 'undefined') { module.exports = RAW_WORD_LIST; }
