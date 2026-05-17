@@ -2568,6 +2568,7 @@ function finishGame() {
     else { winnerTxt.innerText = "🤝 GELIJKSPEL"; winnerTxt.style.color = "#ecf0f1"; }
     renderMiniGridWithOutlines(myGrid, 'my-mini-grid', 'my-row-scores', 'my-col-scores');
     renderMiniGridWithOutlines(opponentGrid, 'opp-mini-grid', 'opp-row-scores', 'opp-col-scores');
+    renderResultWords(myGrid);
 
     const dailyShareControls = document.getElementById('daily-share-controls');
     if (dailyShareControls) {
@@ -2616,6 +2617,27 @@ function renderMiniGridWithOutlines(gridData, gridId, rowScoresId, colScoresId) 
         const d = document.createElement('div'); d.className = 'mini-score-cell';
         const score = getLineScore(colStr); d.innerText = score > 0 ? score : "-"; colEl.appendChild(d); 
     }
+}
+
+function renderResultWords(grid) {
+    const section = document.getElementById('result-words-section');
+    const list = document.getElementById('result-words-list');
+    if (!section || !list) return;
+    list.innerHTML = '';
+    const highlights = getScoringWords(grid);
+    if (!highlights.length) { section.style.display = 'none'; return; }
+    const pts = { 5: 15, 4: 10, 3: 5 };
+    highlights.forEach(h => {
+        let word = '';
+        for (let i = 0; i < h.len; i++) {
+            word += h.type === 'row' ? grid[h.r * 5 + h.c + i] : grid[(h.r + i) * 5 + h.c];
+        }
+        const badge = document.createElement('span');
+        badge.className = `word-badge word-badge-${h.len}`;
+        badge.innerHTML = `${word} <span class="word-badge-pts">+${pts[h.len]}</span>`;
+        list.appendChild(badge);
+    });
+    section.style.display = 'block';
 }
 
 async function handleScrambleStart() {

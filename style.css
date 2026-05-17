@@ -384,7 +384,17 @@
             }
         }
 
-        @keyframes slideUpFade { 
-            from { transform: translateY(20px); opacity: 0; } 
-            to { transform: translateY(0); opacity: 1; } 
+        .btn-dictionary { background-color: #5b7fa6; color: #fff; box-shadow: 0 4px 0 #3d5a7a; }
+
+        .result-words-title { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+        .result-words-list { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; }
+        .word-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 4px; font-size: 0.78rem; font-weight: 800; text-transform: uppercase; }
+        .word-badge-5 { background: #e0f5f0; color: #1a7a5e; border: 1px solid #b8e8d8; }
+        .word-badge-4 { background: #e8f0ff; color: #2d5bbf; border: 1px solid #c5d5f5; }
+        .word-badge-3 { background: #f5f7fb; color: #5a6a80; border: 1px solid #dde4ef; }
+        .word-badge-pts { font-size: 0.68rem; opacity: 0.75; }
+
+        @keyframes slideUpFade {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }

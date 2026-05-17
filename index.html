@@ -49,6 +49,7 @@
             <button class="mode-btn btn-computer" onclick="showDifficultySelect()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="9" rx="2"></rect><path d="M12 4v3"></path><circle cx="10" cy="11" r="1"></circle><circle cx="14" cy="11" r="1"></circle><path d="M10 14h4"></path></svg></span><span class="btn-label">Tegen Computer</span></button>
             <button class="mode-btn btn-online" onclick="showOnlineLobby()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="8" cy="9" r="2"></circle><circle cx="16" cy="9" r="2"></circle><path d="M4 18c1-2.3 3-3.5 4-3.5s3 1.2 4 3.5"></path><path d="M12 18c1-2.3 3-3.5 4-3.5s3 1.2 4 3.5"></path></svg></span><span class="btn-label">Online Duel</span></button>
             <button class="mode-btn btn-highscore" onclick="openHighscores()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 19h14"></path><path d="M8 16v-4"></path><path d="M12 16V9"></path><path d="M16 16v-6"></path></svg></span><span class="btn-label">Highscores</span></button>
+            <button class="mode-btn btn-dictionary" onclick="openChecker()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path><path d="M9 10h6"></path><path d="M9 14h4"></path></svg></span><span class="btn-label">Woordenboek</span></button>
         </div>
 
         <div id="difficulty-select">
@@ -164,6 +165,10 @@
                     <div class="horizontal-scores" id="opp-col-scores"></div>
                 </div>
             </div>
+        </div>
+        <div id="result-words-section" style="margin-top:10px; margin-bottom:4px; display:none;">
+            <div class="result-words-title">Gevonden woorden</div>
+            <div id="result-words-list" class="result-words-list"></div>
         </div>
         <div id="daily-share-controls" style="display:none; margin-top: 10px;">
             <div style="font-size:0.8rem; color:#95a5a6; margin-bottom:10px; text-transform:uppercase; font-weight:700;">DEEL JE DAILY RESULTAAT</div>
