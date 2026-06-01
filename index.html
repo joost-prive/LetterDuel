@@ -216,6 +216,10 @@
         .timer-block.timer-low .timer-time { color: var(--accent); animation: timerPulse 0.6s infinite; }
         .timer-block.timer-active.timer-low .timer-time { color: #ffdddd; }
         @keyframes timerPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+        /* SOLO MODUS: enkel speler-klok zichtbaar, gecentreerd */
+        #online-timer-bar.timer-solo { justify-content: center; max-width: 220px; }
+        #online-timer-bar.timer-solo #timer-opp { display: none; }
+        #online-timer-bar.timer-solo #timer-mine { flex: 0 0 auto; min-width: 140px; }
 
         #win-chance-container { width: 100%; max-width: 450px; margin-bottom: 20px; display: none; padding: 0 10px; box-sizing: border-box; }
         canvas { border-radius: 6px; border: 1px solid #d6e0f0; box-shadow: 0 3px 8px rgba(24, 39, 75, 0.15); background: #f1f5fb; width: 100%; height: 40px; }
@@ -785,12 +789,18 @@ const RULES_SKIP_STORAGE_KEY = 'ld_hide_rules_popup';
 let rulesContinueCallback = null;
 let lastAnnouncedPendingLetter = null;
 const ONLINE_TIMER_MS = 3 * 60 * 1000;
+const SINGLE_TIMER_MS = 3 * 60 * 1000;
+const DAILY_TIMER_MS = 90 * 1000;
 let timerInterval = null;
 let localTurnStartedAt = null;
 let localP1TimeLeft = ONLINE_TIMER_MS;
 let localP2TimeLeft = ONLINE_TIMER_MS;
 let localHostId = null;
 let timerExpiredHandled = false;
+// Solo-timer (computer + daily): blijft alleen lopen als speler aan zet is.
+let soloTimerRemaining = 0;
+let soloTimerLastTick = 0;
+let soloTimerActive = false;
 const isDailyAttemptLimitEnabled = true;
 const isDebugMode = ['localhost', '127.0.0.1'].includes(window.location.hostname) || new URLSearchParams(window.location.search).get('debug') === '1';
 
@@ -1625,6 +1635,7 @@ function initializeDailyGame(puzzle, dateKey) {
     updateGameControlButtons();
     updateUI('DAILY: JIJ BEGINT');
     updateSimulationButton();
+    startSoloTimer(DAILY_TIMER_MS);
     const dailyNo = getDailySequenceNumber(dateKey);
     const dailyTitle = dailyNo ? `DAILY #${dailyNo}` : 'DAILY';
     showFlashMessage(dailyTitle, `${dateKey}`);
@@ -2123,6 +2134,7 @@ function startSinglePlayer(difficulty) {
             window.activeTurnPlayerId = null;
             stopOnlineSimulation();
             stopSinglePlayerSimulation();
+            stopOnlineTimer();
             isSinglePlayer = true;
             gameMode = 'single';
             currentDailyPuzzle = null;
@@ -2132,13 +2144,14 @@ function startSinglePlayer(difficulty) {
             lastDailyResultPayload = null;
             aiDifficulty = difficulty; opponentName = "Computer";
             finalTurnProcessed = false; isAiProcessing = false;
-            setupStartGrids(false); 
+            setupStartGrids(false);
             const iStart = Math.random() > 0.5;
             document.getElementById('start-screen').style.display = 'none';
             gameUi.style.display = 'block';
             winChanceContainer.style.display = 'block';
             document.getElementById('daily-share-controls').style.display = 'none';
-            
+            startSoloTimer(SINGLE_TIMER_MS);
+
             showFlashMessage("MUNT OPGOOIEN...", "🪙", 1500);
             setTimeout(() => {
                 if (iStart) {
@@ -3378,8 +3391,92 @@ function stopOnlineTimer() {
     clearInterval(timerInterval);
     timerInterval = null;
     localTurnStartedAt = null;
+    soloTimerActive = false;
     const bar = document.getElementById('online-timer-bar');
-    if (bar) bar.style.display = 'none';
+    if (bar) { bar.style.display = 'none'; bar.classList.remove('timer-solo'); }
+    const mineBlock = document.getElementById('timer-mine');
+    if (mineBlock) mineBlock.classList.remove('timer-active', 'timer-low');
+}
+
+// --- SOLO TIMER (computer + daily) ---
+// Loopt alleen als speler aan zet is (!isAiProcessing && !finalTurnProcessed).
+function startSoloTimer(durationMs) {
+    clearInterval(timerInterval);
+    soloTimerRemaining = durationMs;
+    soloTimerLastTick = Date.now();
+    soloTimerActive = true;
+    timerExpiredHandled = false;
+    const bar = document.getElementById('online-timer-bar');
+    if (bar) {
+        bar.classList.add('timer-solo');
+        bar.style.display = 'flex';
+    }
+    document.getElementById('timer-opp-label').textContent = '';
+    updateSoloTimerDisplay();
+    timerInterval = setInterval(tickSoloTimer, 200);
+}
+
+function tickSoloTimer() {
+    if (!soloTimerActive) return;
+    const now = Date.now();
+    const elapsed = now - soloTimerLastTick;
+    soloTimerLastTick = now;
+    // Klok loopt alleen als speler aan zet is. AI denkt = pauze.
+    const playerThinking = !isAiProcessing && !finalTurnProcessed;
+    if (playerThinking) {
+        soloTimerRemaining = Math.max(0, soloTimerRemaining - elapsed);
+    }
+    updateSoloTimerDisplay();
+    if (playerThinking && soloTimerRemaining <= 0 && !timerExpiredHandled) {
+        handleSoloTimerExpired();
+    }
+}
+
+function updateSoloTimerDisplay() {
+    const display = document.getElementById('timer-mine-display');
+    const mineBlock = document.getElementById('timer-mine');
+    if (!display || !mineBlock) return;
+    display.textContent = formatTime(soloTimerRemaining);
+    const playerThinking = !isAiProcessing && !finalTurnProcessed;
+    mineBlock.classList.toggle('timer-active', playerThinking);
+    mineBlock.classList.toggle('timer-low', soloTimerRemaining < 30000);
+}
+
+function handleSoloTimerExpired() {
+    if (timerExpiredHandled || finalTurnProcessed) return;
+    timerExpiredHandled = true;
+    finalTurnProcessed = true;
+    soloTimerActive = false;
+    clearInterval(timerInterval);
+    timerInterval = null;
+    showSoloTimeoutResult();
+}
+
+function showSoloTimeoutResult() {
+    const myScore = calculatePoints(myGrid);
+    const oppScore = calculatePoints(opponentGrid);
+
+    if (gameMode === 'daily') {
+        saveDailyResult(myScore, oppScore).catch((e) => {
+            if (String(e && e.message) === 'daily-already-played') return;
+            console.error('Daily timeout opslaan mislukt:', e);
+        });
+    }
+
+    const winnerTxt = document.getElementById('winner-display');
+    winnerTxt.innerText = "⏰ TIJD OP - VERLOREN!";
+    winnerTxt.style.color = "var(--accent)";
+    document.getElementById('my-final-score').innerText = myScore;
+    document.getElementById('opp-final-score').innerText = oppScore;
+    document.getElementById('opponent-name-result').innerText = opponentName;
+    renderMiniGridWithOutlines(myGrid, 'my-mini-grid', 'my-row-scores', 'my-col-scores');
+    renderMiniGridWithOutlines(opponentGrid, 'opp-mini-grid', 'opp-row-scores', 'opp-col-scores');
+
+    const dailyShareControls = document.getElementById('daily-share-controls');
+    if (dailyShareControls) dailyShareControls.style.display = gameMode === 'daily' ? 'block' : 'none';
+
+    document.getElementById('result-modal').style.display = 'flex';
+    keyboard.style.display = 'none';
 }
 
 async function handleTimerExpired() {
@@ -3426,6 +3523,12 @@ function showTimeoutResult(iMyTimeout) {
 
 function finishGame() {
     clearInterval(timerInterval);
+    soloTimerActive = false;
+    const bar = document.getElementById('online-timer-bar');
+    if (bar && bar.classList.contains('timer-solo')) {
+        bar.style.display = 'none';
+        bar.classList.remove('timer-solo');
+    }
     const myScore = calculatePoints(myGrid);
     const oppScore = calculatePoints(opponentGrid);
 
