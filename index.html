@@ -790,7 +790,7 @@ let rulesContinueCallback = null;
 let lastAnnouncedPendingLetter = null;
 const ONLINE_TIMER_MS = 3 * 60 * 1000;
 const SINGLE_TIMER_MS = 3 * 60 * 1000;
-const DAILY_TIMER_MS = 90 * 1000;
+const DAILY_TIMER_MS = 150 * 1000;
 let timerInterval = null;
 let localTurnStartedAt = null;
 let localP1TimeLeft = ONLINE_TIMER_MS;
@@ -3416,13 +3416,23 @@ function startSoloTimer(durationMs) {
     timerInterval = setInterval(tickSoloTimer, 200);
 }
 
+// Speler is "aan zet" (en dus de klok loopt) alleen als:
+//  - de AI niet aan het denken is
+//  - het spel niet al afgelopen is
+//  - er geen flash-overlay het scherm blokkeert (bv. "Computer koos: X")
+function isPlayerOnTheClock() {
+    if (isAiProcessing || finalTurnProcessed) return false;
+    const flash = document.getElementById('flash-overlay');
+    if (flash && flash.style.display !== 'none' && flash.style.display !== '') return false;
+    return true;
+}
+
 function tickSoloTimer() {
     if (!soloTimerActive) return;
     const now = Date.now();
     const elapsed = now - soloTimerLastTick;
     soloTimerLastTick = now;
-    // Klok loopt alleen als speler aan zet is. AI denkt = pauze.
-    const playerThinking = !isAiProcessing && !finalTurnProcessed;
+    const playerThinking = isPlayerOnTheClock();
     if (playerThinking) {
         soloTimerRemaining = Math.max(0, soloTimerRemaining - elapsed);
     }
@@ -3437,7 +3447,7 @@ function updateSoloTimerDisplay() {
     const mineBlock = document.getElementById('timer-mine');
     if (!display || !mineBlock) return;
     display.textContent = formatTime(soloTimerRemaining);
-    const playerThinking = !isAiProcessing && !finalTurnProcessed;
+    const playerThinking = isPlayerOnTheClock();
     mineBlock.classList.toggle('timer-active', playerThinking);
     mineBlock.classList.toggle('timer-low', soloTimerRemaining < 30000);
 }
