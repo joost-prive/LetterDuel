@@ -205,7 +205,18 @@
         }
         
         #pending-letter-display { font-size: 2.2rem; font-weight: 900; color: var(--text-main); height: 40px; }
-        
+
+        /* ONLINE SCHAAKKLOK TIMER */
+        #online-timer-bar { display: none; flex-direction: row; gap: 10px; width: 90%; max-width: 400px; margin-bottom: 12px; }
+        .timer-block { flex: 1; background: var(--surface); border-radius: 10px; border: 2px solid #e0e7f3; padding: 8px 10px; display: flex; flex-direction: column; align-items: center; transition: background 0.25s, border-color 0.25s; }
+        .timer-block.timer-active { background: var(--primary); border-color: var(--primary); }
+        .timer-block.timer-active .timer-label, .timer-block.timer-active .timer-time { color: #fff; }
+        .timer-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; }
+        .timer-time { font-size: 1.5rem; font-weight: 900; color: var(--text-main); font-variant-numeric: tabular-nums; letter-spacing: 1px; line-height: 1.1; }
+        .timer-block.timer-low .timer-time { color: var(--accent); animation: timerPulse 0.6s infinite; }
+        .timer-block.timer-active.timer-low .timer-time { color: #ffdddd; }
+        @keyframes timerPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
         #win-chance-container { width: 100%; max-width: 450px; margin-bottom: 20px; display: none; padding: 0 10px; box-sizing: border-box; }
         canvas { border-radius: 6px; border: 1px solid #d6e0f0; box-shadow: 0 3px 8px rgba(24, 39, 75, 0.15); background: #f1f5fb; width: 100%; height: 40px; }
 
@@ -416,6 +427,15 @@
                 font-size: 1.8rem;
                 height: 32px;
             }
+            #online-timer-bar {
+                margin-bottom: 8px;
+            }
+            .timer-block {
+                padding: 5px 8px;
+            }
+            .timer-time {
+                font-size: 1.25rem;
+            }
             .integrated-game-grid {
                 width: min(100%, clamp(230px, calc(100dvh - 340px), 390px));
                 gap: 5px;
@@ -543,6 +563,17 @@
         <div id="game-status-bar">
             <span id="turn-instruction">Wachten...</span>
             <div id="pending-letter-display"></div>
+        </div>
+
+        <div id="online-timer-bar">
+            <div class="timer-block" id="timer-mine">
+                <div class="timer-label">JIJ</div>
+                <div class="timer-time" id="timer-mine-display">3:00</div>
+            </div>
+            <div class="timer-block" id="timer-opp">
+                <div class="timer-label" id="timer-opp-label">Tegenstander</div>
+                <div class="timer-time" id="timer-opp-display">3:00</div>
+            </div>
         </div>
 
         <div id="win-chance-container">
@@ -753,6 +784,13 @@ const DAILY_SEQUENCE_START_KEY = '2026-02-28';
 const RULES_SKIP_STORAGE_KEY = 'ld_hide_rules_popup';
 let rulesContinueCallback = null;
 let lastAnnouncedPendingLetter = null;
+const ONLINE_TIMER_MS = 3 * 60 * 1000;
+let timerInterval = null;
+let localTurnStartedAt = null;
+let localP1TimeLeft = ONLINE_TIMER_MS;
+let localP2TimeLeft = ONLINE_TIMER_MS;
+let localHostId = null;
+let timerExpiredHandled = false;
 const isDailyAttemptLimitEnabled = true;
 const isDebugMode = ['localhost', '127.0.0.1'].includes(window.location.hostname) || new URLSearchParams(window.location.search).get('debug') === '1';
 
@@ -1541,6 +1579,7 @@ function initializeDailyGame(puzzle, dateKey) {
 
     stopOnlineSimulation();
     stopSinglePlayerSimulation();
+    stopOnlineTimer();
 
     currentGameId = null;
     myRoleId = null;
@@ -2157,7 +2196,10 @@ async function tryJoinGameAsGuest(gameId, uid, username) {
                 guestId: uid,
                 guestName: username,
                 status: "playing",
-                turn: startTurn
+                turn: startTurn,
+                p1TimeLeft: ONLINE_TIMER_MS,
+                p2TimeLeft: ONLINE_TIMER_MS,
+                turnStartedAt: Date.now()
             });
 
             return 'joined';
@@ -2180,7 +2222,8 @@ function joinFirebaseGameById(gameId) {
         const data = snapshot.data();
         
         // Update turn global
-        window.activeTurnPlayerId = data.turn; 
+        window.activeTurnPlayerId = data.turn;
+        localHostId = data.hostId;
 
         if (data.hostId === uid) {
             myRoleId = 'host';
@@ -2226,6 +2269,16 @@ function joinFirebaseGameById(gameId) {
             gameMode = 'online';
             document.getElementById('daily-share-controls').style.display = 'none';
             updateSimulationButton();
+
+            // Timer bijwerken vanuit Firebase
+            if (data.p1TimeLeft !== undefined && data.turnStartedAt) {
+                localP1TimeLeft = data.p1TimeLeft;
+                localP2TimeLeft = data.p2TimeLeft;
+                localTurnStartedAt = data.turnStartedAt;
+                document.getElementById('timer-opp-label').textContent = opponentName;
+                document.getElementById('online-timer-bar').style.display = 'flex';
+                startOnlineTimer();
+            }
         } else if (data.status === 'waiting' && myRoleId === 'host') {
             document.getElementById('start-screen').style.display = 'flex';
             document.getElementById('lobby-ui').style.display = 'flex';
@@ -2238,21 +2291,34 @@ function joinFirebaseGameById(gameId) {
         }
 
         if (lastStatus === "waiting" && data.status === "playing") {
+             timerExpiredHandled = false;
              showFlashMessage("MUNT OPGOOIEN...", "🪙", 1500);
              setTimeout(() => {
                  if(data.turn === uid) showFlashMessage("Jij Wint!", "JIJ MAG STARTEN");
                  else showFlashMessage("Helaas!", "TEGENSTANDER BEGINT");
              }, 1500);
         }
-        lastStatus = data.status; 
-        
+        lastStatus = data.status;
+
+        // CHECK TIMEOUT (tegenstander of jezelf)
+        if (data.timedOut && !finalTurnProcessed) {
+            finalTurnProcessed = true;
+            clearInterval(timerInterval);
+            renderGrid();
+            const iMyTimeout = data.timedOut === uid;
+            setTimeout(() => showTimeoutResult(iMyTimeout), 1000);
+            return;
+        }
+
         // CHECK EINDE SPEL
         const myCount = myGrid.filter(c => c!=="").length;
         const oppCount = opponentGrid.filter(c => c!=="").length;
-        
+
         if (myCount >= 25 && oppCount >= 25) {
              if(!finalTurnProcessed) {
-                 finalTurnProcessed = true; renderGrid(); setTimeout(finishGame, 1500);
+                 finalTurnProcessed = true;
+                 clearInterval(timerInterval);
+                 renderGrid(); setTimeout(finishGame, 1500);
              }
              return;
         }
@@ -2314,6 +2380,20 @@ async function sendMoveToFirebase(index, char, isPlacingPending) {
     updates.pendingLetter = nextPending;
     updates.turn = nextTurn;
     updates.status = nextTurn === 'FINISHED' ? 'finished' : 'playing';
+
+    // Schaakklok: verstreken tijd aftrekken van actieve speler
+    if (localTurnStartedAt !== null) {
+        const timeUsed = Math.max(0, Date.now() - localTurnStartedAt);
+        if (myRoleId === 'host') {
+            updates.p1TimeLeft = Math.max(0, localP1TimeLeft - timeUsed);
+            updates.p2TimeLeft = localP2TimeLeft;
+        } else {
+            updates.p1TimeLeft = localP1TimeLeft;
+            updates.p2TimeLeft = Math.max(0, localP2TimeLeft - timeUsed);
+        }
+        updates.turnStartedAt = Date.now();
+    }
+
     await updateDoc(doc(window.db, "games", currentGameId), updates);
 }
 function createGridUI() {
@@ -3240,10 +3320,115 @@ async function shareDailyResult(channel, payloadOverride = null) {
     }
 }
 
+// --- ONLINE SCHAAKKLOK TIMER ---
+
+function formatTime(ms) {
+    const totalSec = Math.max(0, Math.ceil(ms / 1000));
+    const min = Math.floor(totalSec / 60);
+    const sec = totalSec % 60;
+    return `${min}:${sec.toString().padStart(2, '0')}`;
+}
+
+function updateTimerDisplay() {
+    if (!localTurnStartedAt) return;
+    const uid = window.currentUser?.uid;
+    const activeId = window.activeTurnPlayerId;
+    const elapsed = Date.now() - localTurnStartedAt;
+
+    let p1Remaining = localP1TimeLeft;
+    let p2Remaining = localP2TimeLeft;
+
+    if (activeId && activeId !== 'WAITING' && activeId !== 'FINISHED') {
+        if (activeId === localHostId) {
+            p1Remaining = Math.max(0, localP1TimeLeft - elapsed);
+        } else {
+            p2Remaining = Math.max(0, localP2TimeLeft - elapsed);
+        }
+    }
+
+    const myRemaining = (myRoleId === 'host') ? p1Remaining : p2Remaining;
+    const oppRemaining = (myRoleId === 'host') ? p2Remaining : p1Remaining;
+
+    document.getElementById('timer-mine-display').textContent = formatTime(myRemaining);
+    document.getElementById('timer-opp-display').textContent = formatTime(oppRemaining);
+
+    const myIsActive = activeId === uid;
+    const oppIsActive = !myIsActive && activeId !== 'WAITING' && activeId !== 'FINISHED' && !!activeId;
+
+    const mineBlock = document.getElementById('timer-mine');
+    const oppBlock = document.getElementById('timer-opp');
+    mineBlock.classList.toggle('timer-active', myIsActive);
+    oppBlock.classList.toggle('timer-active', oppIsActive);
+    mineBlock.classList.toggle('timer-low', myRemaining < 30000);
+    oppBlock.classList.toggle('timer-low', oppRemaining < 30000);
+
+    // Timeout detectie: alleen de actieve speler triggert dit
+    if (myIsActive && myRemaining <= 0 && !timerExpiredHandled && !finalTurnProcessed) {
+        handleTimerExpired();
+    }
+}
+
+function startOnlineTimer() {
+    clearInterval(timerInterval);
+    updateTimerDisplay();
+    timerInterval = setInterval(updateTimerDisplay, 200);
+}
+
+function stopOnlineTimer() {
+    clearInterval(timerInterval);
+    timerInterval = null;
+    localTurnStartedAt = null;
+    const bar = document.getElementById('online-timer-bar');
+    if (bar) bar.style.display = 'none';
+}
+
+async function handleTimerExpired() {
+    if (timerExpiredHandled || finalTurnProcessed) return;
+    timerExpiredHandled = true;
+    finalTurnProcessed = true;
+    clearInterval(timerInterval);
+
+    const { updateDoc, doc, getDoc } = window.firebaseFuncs;
+    try {
+        const gameRef = doc(window.db, "games", currentGameId);
+        const snap = await getDoc(gameRef);
+        if (snap.exists() && snap.data().status === 'playing') {
+            await updateDoc(gameRef, {
+                turn: 'FINISHED',
+                status: 'finished',
+                timedOut: window.currentUser.uid
+            });
+        }
+    } catch (e) {
+        console.error("Kon timer timeout niet opslaan:", e);
+    }
+}
+
+function showTimeoutResult(iMyTimeout) {
+    clearInterval(timerInterval);
+    const winnerTxt = document.getElementById('winner-display');
+    if (iMyTimeout) {
+        winnerTxt.innerText = "⏰ TIJD OP - VERLOREN!";
+        winnerTxt.style.color = "var(--accent)";
+    } else {
+        winnerTxt.innerText = "⏰ TEGENSTANDER TIJD OP!";
+        winnerTxt.style.color = "var(--secondary)";
+    }
+    document.getElementById('my-final-score').innerText = calculatePoints(myGrid);
+    document.getElementById('opp-final-score').innerText = calculatePoints(opponentGrid);
+    document.getElementById('opponent-name-result').innerText = opponentName;
+    renderMiniGridWithOutlines(myGrid, 'my-mini-grid', 'my-row-scores', 'my-col-scores');
+    renderMiniGridWithOutlines(opponentGrid, 'opp-mini-grid', 'opp-row-scores', 'opp-col-scores');
+    document.getElementById('daily-share-controls').style.display = 'none';
+    document.getElementById('result-modal').style.display = 'flex';
+    keyboard.style.display = 'none';
+}
+
 function finishGame() {
+    clearInterval(timerInterval);
     const myScore = calculatePoints(myGrid);
     const oppScore = calculatePoints(opponentGrid);
-    
+
     if (gameMode === 'daily') {
         saveDailyResult(myScore, oppScore).catch((e) => {
             if (String(e && e.message) === 'daily-already-played') {
