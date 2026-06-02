@@ -7,6 +7,9 @@
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,800&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
     <script src="words.js"></script>
     <script src="gameLogic.js"></script>
 
@@ -465,10 +468,661 @@
             }
         }
 
-        @keyframes slideUpFade { 
-            from { transform: translateY(20px); opacity: 0; } 
-            to { transform: translateY(0); opacity: 1; } 
+        @keyframes slideUpFade {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
+
+        /* ============================================================
+           HOUTEN THEMA — wooden redesign skin
+           Toegevoegd onderaan zodat het alle eerdere regels overschrijft.
+           ============================================================ */
+        :root {
+            --w-cream: #f4ead5;
+            --w-cream-soft: #fbf4e2;
+            --w-paper: #f9efd5;
+            --w-wood-light: #b8814a;
+            --w-wood-mid: #a87645;
+            --w-wood-dark: #6e4626;
+            --w-walnut: #3b2618;
+            --w-walnut-soft: #2a1810;
+            --w-ivory: #f9efd5;
+            --w-ivory-edge: #d8c699;
+            --w-gold: #c89b3c;
+            --w-gold-soft: #e0b966;
+            --w-ink: #2d1f15;
+            --w-bordeaux: #a13a2a;
+            --w-bordeaux-soft: #c44a3a;
+            --w-moss: #5c7548;
+            --w-moss-light: #6e9056;
+
+            /* Hermap van oude variabelen */
+            --bg-dark: var(--w-cream);
+            --bg-gradient: linear-gradient(180deg, #f7ecd1 0%, #efe1c2 100%);
+            --text-main: var(--w-ink);
+            --text-muted: #7a5b3a;
+            --primary: var(--w-wood-dark);
+            --secondary: var(--w-moss);
+            --accent: var(--w-bordeaux);
+            --surface: var(--w-cream-soft);
+            --surface-light: var(--w-cream);
+            --shadow: 0 6px 14px rgba(40, 20, 10, 0.18);
+            --easy: var(--w-moss);
+            --medium: var(--w-wood-mid);
+            --hard: var(--w-bordeaux);
+        }
+
+        /* Body — papier op houten ondergrond */
+        body {
+            font-family: 'Fraunces', Georgia, serif;
+            background:
+                radial-gradient(ellipse at top, rgba(255, 245, 220, 0.5), transparent 60%),
+                repeating-linear-gradient(92deg,
+                    rgba(70, 40, 20, 0.04) 0px,
+                    rgba(70, 40, 20, 0.04) 1px,
+                    transparent 1px,
+                    transparent 4px),
+                linear-gradient(180deg, #f7ecd1 0%, #efe1c2 100%);
+            color: var(--w-ink);
+        }
+
+        /* Brand header — gegraveerd-houten plakkaat */
+        .brand-header {
+            background:
+                repeating-linear-gradient(95deg,
+                    rgba(0,0,0,0.06) 0px,
+                    rgba(0,0,0,0.06) 1px,
+                    transparent 1px,
+                    transparent 5px),
+                linear-gradient(180deg, var(--w-wood-light), var(--w-wood-mid));
+            border: 2px solid var(--w-walnut);
+            border-radius: 8px;
+            box-shadow:
+                inset 0 1px 0 rgba(255, 230, 180, 0.4),
+                inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+                0 6px 14px rgba(40, 20, 10, 0.25);
+            backdrop-filter: none;
+            padding: 12px 22px;
+        }
+        .logo-svg { filter: drop-shadow(0 1px 0 var(--w-walnut)) drop-shadow(0 2px 3px rgba(0,0,0,0.4)); }
+        h1 {
+            font-family: 'Playfair Display', serif;
+            font-weight: 900;
+            color: var(--w-ivory);
+            letter-spacing: 4px;
+            text-shadow: 0 1px 0 var(--w-walnut), 0 2px 3px rgba(0,0,0,0.4);
+        }
+        .slogan {
+            font-family: 'Fraunces', serif;
+            font-style: italic;
+            font-weight: 500;
+            color: var(--w-gold-soft);
+            text-transform: none;
+            letter-spacing: 0.5px;
+        }
+
+        /* Start scherm + menu card — crème papier met gouden randje */
+        #start-screen {
+            background:
+                radial-gradient(ellipse at top, rgba(255, 245, 220, 0.5), transparent 60%),
+                repeating-linear-gradient(92deg,
+                    rgba(70, 40, 20, 0.04) 0px,
+                    rgba(70, 40, 20, 0.04) 1px,
+                    transparent 1px,
+                    transparent 4px),
+                linear-gradient(180deg, #f7ecd1 0%, #efe1c2 100%);
+        }
+        .menu-card {
+            background:
+                radial-gradient(ellipse at center, var(--w-cream-soft) 0%, var(--w-cream) 100%);
+            border: 2px solid var(--w-gold);
+            box-shadow:
+                inset 0 0 0 1px rgba(255,255,255,0.6),
+                0 8px 20px rgba(60, 30, 10, 0.18);
+            position: relative;
+        }
+        .menu-card::before, .menu-card::after {
+            content: "";
+            position: absolute;
+            width: 22px; height: 22px;
+            border: 1.5px solid var(--w-gold);
+            opacity: 0.7;
+        }
+        .menu-card::before { top: 8px; left: 8px; border-right: 0; border-bottom: 0; }
+        .menu-card::after { top: 8px; right: 8px; border-left: 0; border-bottom: 0; }
+        .menu-title {
+            font-family: 'Playfair Display', serif;
+            font-weight: 900;
+            color: var(--w-ink);
+            letter-spacing: 3px;
+        }
+        .menu-section-title {
+            font-family: 'Fraunces', serif;
+            font-style: italic;
+            font-weight: 600;
+            color: var(--w-wood-dark);
+            text-transform: none;
+            letter-spacing: 1px;
+        }
+
+        /* Mode buttons — houten plaatjes */
+        .mode-btn {
+            font-family: 'Playfair Display', serif;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            border: 2px solid var(--w-walnut);
+            color: var(--w-ivory) !important;
+            box-shadow: 0 3px 0 var(--w-walnut), 0 5px 8px rgba(40,20,10,0.2);
+            background:
+                repeating-linear-gradient(95deg,
+                    rgba(0,0,0,0.05) 0px,
+                    rgba(0,0,0,0.05) 1px,
+                    transparent 1px,
+                    transparent 4px),
+                linear-gradient(180deg, var(--w-wood-light), var(--w-wood-mid));
+        }
+        .mode-btn:active { box-shadow: 0 1px 0 var(--w-walnut); transform: translateY(2px); }
+        #start-screen .mode-btn .btn-label { font-family: 'Playfair Display', serif; font-weight: 700; letter-spacing: 1.5px; }
+        .btn-computer { background: repeating-linear-gradient(95deg, rgba(0,0,0,0.05) 0, rgba(0,0,0,0.05) 1px, transparent 1px, transparent 4px), linear-gradient(180deg, var(--w-wood-light), var(--w-wood-mid)); }
+        .btn-online { background: repeating-linear-gradient(95deg, rgba(0,0,0,0.05) 0, rgba(0,0,0,0.05) 1px, transparent 1px, transparent 4px), linear-gradient(180deg, #6e9056, var(--w-moss)); }
+        .btn-daily { background: repeating-linear-gradient(95deg, rgba(0,0,0,0.05) 0, rgba(0,0,0,0.05) 1px, transparent 1px, transparent 4px), linear-gradient(180deg, var(--w-gold-soft), var(--w-gold)); color: var(--w-ink) !important; text-shadow: 0 1px 0 rgba(255,255,255,0.3); }
+        .btn-highscore { background: repeating-linear-gradient(95deg, rgba(0,0,0,0.05) 0, rgba(0,0,0,0.05) 1px, transparent 1px, transparent 4px), linear-gradient(180deg, var(--w-bordeaux-soft), var(--w-bordeaux)); }
+        .btn-dictionary { background: repeating-linear-gradient(95deg, rgba(0,0,0,0.05) 0, rgba(0,0,0,0.05) 1px, transparent 1px, transparent 4px), linear-gradient(180deg, var(--w-wood-mid), var(--w-wood-dark)); }
+        .btn-easy { background: linear-gradient(180deg, #6e9056, var(--w-moss)); box-shadow: 0 3px 0 var(--w-walnut), 0 5px 8px rgba(40,20,10,0.2); }
+        .btn-medium { background: linear-gradient(180deg, var(--w-wood-light), var(--w-wood-mid)); box-shadow: 0 3px 0 var(--w-walnut), 0 5px 8px rgba(40,20,10,0.2); }
+        .btn-hard { background: linear-gradient(180deg, var(--w-bordeaux-soft), var(--w-bordeaux)); box-shadow: 0 3px 0 var(--w-walnut), 0 5px 8px rgba(40,20,10,0.2); }
+        .btn-back { background: linear-gradient(180deg, #5a4636, var(--w-walnut)); box-shadow: 0 3px 0 #1f130b, 0 5px 8px rgba(40,20,10,0.2); }
+        .btn-scramble {
+            background: linear-gradient(180deg, var(--w-cream-soft), var(--w-cream));
+            color: var(--w-wood-dark);
+            border: 1.5px solid var(--w-wood-mid);
+            box-shadow: 0 2px 0 var(--w-wood-mid);
+            font-family: 'Fraunces', serif;
+            font-weight: 600;
+        }
+        .btn-check-small {
+            background: linear-gradient(180deg, var(--w-ivory), #ebdcaf) !important;
+            color: var(--w-wood-dark) !important;
+            border: 1.5px solid var(--w-wood-dark) !important;
+            box-shadow: 0 2px 0 var(--w-wood-dark) !important;
+            font-family: 'Fraunces', serif;
+            font-weight: 700;
+            text-transform: none !important;
+            letter-spacing: 0.5px !important;
+        }
+
+        /* Info button + profile */
+        .info-btn {
+            background: linear-gradient(180deg, var(--w-cream-soft), var(--w-cream)) !important;
+            border: 1.5px solid var(--w-gold) !important;
+            color: var(--w-wood-dark) !important;
+            font-family: 'Fraunces', serif;
+            font-style: italic;
+        }
+        .info-btn:hover { background: var(--w-cream) !important; border-color: var(--w-wood-dark) !important; }
+        #profile-display {
+            background: rgba(249, 239, 213, 0.5);
+            border: 1px solid var(--w-gold);
+            color: var(--w-wood-dark);
+            font-family: 'Fraunces', serif;
+        }
+        #profile-name { color: var(--w-ink); font-weight: 700; }
+        #profile-icon { color: var(--w-wood-dark); }
+
+        /* Game status bar — perkament-paneel met gouden hoeken */
+        #game-status-bar {
+            background:
+                radial-gradient(ellipse at center, var(--w-cream-soft) 0%, var(--w-cream) 100%);
+            border: 2px solid var(--w-gold);
+            border-left: 2px solid var(--w-gold);
+            box-shadow:
+                inset 0 0 0 1px rgba(255,255,255,0.6),
+                0 4px 10px rgba(60, 30, 10, 0.15);
+            position: relative;
+        }
+        #game-status-bar::before, #game-status-bar::after {
+            content: "";
+            position: absolute;
+            top: 6px;
+            width: 16px; height: 16px;
+            border: 1px solid var(--w-gold);
+            opacity: 0.6;
+        }
+        #game-status-bar::before { left: 6px; border-right: 0; border-bottom: 0; }
+        #game-status-bar::after { right: 6px; border-left: 0; border-bottom: 0; }
+        #turn-instruction {
+            font-family: 'Playfair Display', serif;
+            font-weight: 700;
+            font-size: 0.78rem;
+            letter-spacing: 4px;
+            color: var(--w-bordeaux);
+            text-transform: uppercase;
+        }
+        #pending-letter-display {
+            font-family: 'Fraunces', serif;
+            font-weight: 800;
+            color: var(--w-ink);
+            text-shadow: 0 2px 0 var(--w-ivory-edge);
+        }
+
+        /* Timer — ivoor pil met zandloper, gecentreerd */
+        #online-timer-bar { justify-content: center; margin-left: auto; margin-right: auto; }
+        .timer-block {
+            background: linear-gradient(180deg, var(--w-ivory), #ebdcaf);
+            border: 2px solid var(--w-walnut);
+            border-radius: 999px;
+            box-shadow:
+                inset 0 1px 0 rgba(255,255,255,0.6),
+                0 3px 8px rgba(60, 30, 10, 0.25);
+        }
+        .timer-block.timer-active {
+            background: linear-gradient(180deg, var(--w-gold-soft), var(--w-gold));
+            border-color: var(--w-walnut);
+        }
+        .timer-block.timer-active .timer-label,
+        .timer-block.timer-active .timer-time { color: var(--w-ink); }
+        .timer-label {
+            font-family: 'Playfair Display', serif;
+            font-weight: 700;
+            letter-spacing: 3px;
+            color: var(--w-wood-dark);
+        }
+        .timer-time {
+            font-family: 'Fraunces', serif;
+            font-weight: 800;
+            color: var(--w-ink);
+        }
+        .timer-block.timer-low .timer-time { color: var(--w-bordeaux); }
+        .timer-block.timer-active.timer-low .timer-time { color: #5a1a10; }
+        #online-timer-bar.timer-solo { max-width: 240px; }
+        #online-timer-bar.timer-solo #timer-mine { min-width: 150px; }
+
+        /* Win chance container — frame */
+        #win-chance-container canvas {
+            border: 2px solid var(--w-walnut);
+            border-radius: 8px;
+            box-shadow: 0 3px 6px rgba(40, 20, 10, 0.25);
+            background: var(--w-walnut);
+        }
+
+        /* Speelbord — donker walnoot met ingelegde vakjes */
+        .integrated-game-grid {
+            background:
+                repeating-linear-gradient(95deg,
+                    rgba(0,0,0,0.08) 0px,
+                    rgba(0,0,0,0.08) 1px,
+                    transparent 1px,
+                    transparent 5px),
+                repeating-linear-gradient(0deg,
+                    rgba(0,0,0,0.03) 0px,
+                    rgba(0,0,0,0.03) 60px,
+                    transparent 60px,
+                    transparent 120px),
+                linear-gradient(180deg, var(--w-wood-dark), var(--w-walnut));
+            border: 3px solid var(--w-walnut-soft);
+            border-radius: 12px;
+            padding: 10px;
+            box-shadow:
+                inset 0 2px 4px rgba(0,0,0,0.5),
+                0 8px 20px rgba(20,10,5,0.3);
+            gap: 7px;
+        }
+        .cell {
+            background:
+                radial-gradient(circle at 30% 30%, rgba(0,0,0,0.15), rgba(0,0,0,0.45) 80%);
+            border: none;
+            border-radius: 6px;
+            box-shadow:
+                inset 0 2px 3px rgba(0,0,0,0.6),
+                inset 0 -1px 0 rgba(255,230,180,0.08);
+            color: transparent;
+            font-family: 'Fraunces', serif;
+        }
+        .cell:active { transform: translateY(1px); box-shadow: inset 0 2px 5px rgba(0,0,0,0.7); }
+        .cell.filled {
+            background: linear-gradient(180deg, var(--w-ivory) 0%, #ebdfc3 100%);
+            border: none;
+            color: var(--w-ink);
+            font-family: 'Fraunces', serif;
+            font-weight: 800;
+            box-shadow:
+                0 2px 0 #74532e,
+                0 4px 6px rgba(0,0,0,0.5),
+                inset 0 1px 0 rgba(255,255,255,0.7);
+            transform: rotate(-1deg);
+            transition: transform 0.2s;
+        }
+        .cell.filled:nth-child(5n+1) { transform: rotate(-1.5deg); }
+        .cell.filled:nth-child(5n+2) { transform: rotate(0.8deg); }
+        .cell.filled:nth-child(5n+3) { transform: rotate(-0.6deg); }
+        .cell.filled:nth-child(5n+4) { transform: rotate(1.4deg); }
+        .cell.filled:nth-child(5n)   { transform: rotate(-1.8deg); }
+        .highlight-empty .cell:not(.filled) {
+            background:
+                radial-gradient(circle at 30% 30%, rgba(200, 155, 60, 0.18), rgba(0,0,0,0.45) 80%);
+            border: none;
+            box-shadow:
+                inset 0 2px 3px rgba(0,0,0,0.5),
+                inset 0 0 0 1px var(--w-gold-soft);
+        }
+        .cell.selected-target {
+            box-shadow:
+                inset 0 0 0 2px var(--w-gold),
+                inset 0 2px 3px rgba(0,0,0,0.4);
+        }
+
+        /* Virtueel toetsenbord — houten plankje */
+        #virtual-keyboard {
+            background:
+                repeating-linear-gradient(95deg,
+                    rgba(0,0,0,0.06) 0px,
+                    rgba(0,0,0,0.06) 1px,
+                    transparent 1px,
+                    transparent 5px),
+                linear-gradient(180deg, var(--w-wood-mid), var(--w-wood-dark));
+            border-top: 2px solid var(--w-walnut);
+            box-shadow: 0 -6px 20px rgba(40, 20, 10, 0.25);
+        }
+        .kb-key {
+            background: linear-gradient(180deg, var(--w-ivory), #ebdfc3);
+            border: 1.5px solid var(--w-walnut);
+            border-radius: 5px;
+            font-family: 'Fraunces', serif;
+            font-weight: 800;
+            color: var(--w-ink);
+            box-shadow: 0 2px 0 var(--w-walnut), inset 0 1px 0 rgba(255,255,255,0.6);
+        }
+        .kb-key:active { transform: translateY(2px); box-shadow: 0 0 0 var(--w-walnut); background: linear-gradient(180deg, #ebdfc3, var(--w-ivory)); }
+
+        /* Modals — perkament met donker hout-randje */
+        .modal { background: rgba(40, 25, 15, 0.55); backdrop-filter: blur(6px); }
+        .modal-content {
+            background:
+                radial-gradient(ellipse at center, var(--w-cream-soft) 0%, var(--w-cream) 100%);
+            border: 2px solid var(--w-walnut);
+            color: var(--w-ink);
+            box-shadow:
+                inset 0 0 0 1px rgba(255,255,255,0.6),
+                inset 0 0 0 3px var(--w-gold),
+                0 24px 60px rgba(40, 20, 10, 0.4);
+        }
+        .close-modal { color: var(--w-wood-dark); font-family: 'Playfair Display', serif; }
+        .close-modal:hover { color: var(--w-bordeaux); }
+
+        /* Result modal */
+        .winner-text {
+            font-family: 'Playfair Display', serif;
+            font-weight: 900;
+            color: var(--w-bordeaux);
+            letter-spacing: 3px;
+        }
+        .score-big {
+            font-family: 'Fraunces', serif;
+            font-weight: 800;
+            color: var(--w-ink);
+        }
+        .mini-cell {
+            background: linear-gradient(180deg, var(--w-ivory), #ebdfc3);
+            color: var(--w-ink);
+            font-family: 'Fraunces', serif;
+            font-weight: 800;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 1px 0 var(--w-wood-dark);
+            border-radius: 3px;
+        }
+        .mini-score-cell {
+            background: var(--w-walnut);
+            color: var(--w-gold-soft);
+            border: 1px solid var(--w-walnut-soft);
+            font-family: 'Fraunces', serif;
+            font-weight: 800;
+            border-radius: 3px;
+        }
+        .outline-row { border: 2px solid var(--w-moss-light); box-shadow: 0 0 8px rgba(110, 144, 86, 0.6); }
+        .outline-col { border: 2px solid var(--w-gold); box-shadow: 0 0 8px rgba(200, 155, 60, 0.5); }
+
+        /* Woordbadges in resultaat (van eerdere merge) */
+        .result-words-title { font-family: 'Playfair Display', serif; color: var(--w-wood-dark); letter-spacing: 3px; }
+        .word-badge { font-family: 'Fraunces', serif; font-weight: 800; border-radius: 4px; }
+        .word-badge-5 { background: #e8f5e0; color: #3d5e25; border: 1px solid #b8d59a; }
+        .word-badge-4 { background: #fbe9d2; color: #7a4a1a; border: 1px solid var(--w-gold); }
+        .word-badge-3 { background: var(--w-cream); color: var(--w-wood-dark); border: 1px solid var(--w-ivory-edge); }
+
+        /* Flash overlay */
+        .flash-overlay { background: rgba(40, 25, 15, 0.55); }
+        .flash-card {
+            background:
+                radial-gradient(ellipse at center, var(--w-cream-soft) 0%, var(--w-cream) 100%) !important;
+            border: 2px solid var(--w-walnut) !important;
+            box-shadow:
+                inset 0 0 0 1px rgba(255,255,255,0.6),
+                inset 0 0 0 3px var(--w-gold),
+                0 24px 60px rgba(40, 20, 10, 0.4) !important;
+            color: var(--w-ink) !important;
+        }
+        .flash-title {
+            font-family: 'Playfair Display', serif !important;
+            font-weight: 900 !important;
+            color: var(--w-bordeaux) !important;
+            letter-spacing: 3px !important;
+        }
+        .flash-content {
+            font-family: 'Fraunces', serif !important;
+            color: var(--w-ink) !important;
+        }
+
+        /* Highscores */
+        .tab-btn {
+            background: linear-gradient(180deg, var(--w-cream-soft), var(--w-cream));
+            border: 1.5px solid var(--w-gold);
+            color: var(--w-wood-dark);
+            font-family: 'Playfair Display', serif;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        .tab-btn.active {
+            background: linear-gradient(180deg, var(--w-wood-light), var(--w-wood-mid));
+            color: var(--w-ivory);
+            border-color: var(--w-walnut);
+        }
+        .scope-btn {
+            background: var(--w-cream-soft);
+            border: 1.5px solid var(--w-ivory-edge);
+            color: var(--w-wood-dark);
+            font-family: 'Fraunces', serif;
+        }
+        .scope-btn.active {
+            background: linear-gradient(180deg, var(--w-gold-soft), var(--w-gold));
+            border-color: var(--w-walnut);
+            color: var(--w-ink);
+            box-shadow: 0 2px 6px rgba(200,155,60,0.4);
+        }
+        .hs-row {
+            background: var(--w-cream-soft);
+            border: 1px solid var(--w-ivory-edge);
+            border-left: 3px solid transparent;
+            border-radius: 4px;
+        }
+        .hs-row:nth-child(1) { border-left-color: var(--w-gold); background: rgba(200, 155, 60, 0.15); }
+        .hs-row:nth-child(2) { border-left-color: #a8a8a8; }
+        .hs-row:nth-child(3) { border-left-color: #b87333; }
+        .hs-rank { color: var(--w-bordeaux); font-family: 'Playfair Display', serif; }
+        .hs-name { color: var(--w-ink); font-family: 'Fraunces', serif; font-weight: 700; }
+        .hs-score { color: var(--w-moss); font-family: 'Fraunces', serif; font-weight: 800; }
+        .hs-ai-score { color: var(--w-bordeaux); font-family: 'Fraunces', serif; font-weight: 800; }
+        .hs-date { color: var(--w-wood-dark); font-family: 'Fraunces', serif; font-style: italic; }
+        .hs-daily-select {
+            background: var(--w-cream-soft);
+            border: 1.5px solid var(--w-gold);
+            color: var(--w-ink);
+            font-family: 'Fraunces', serif;
+        }
+
+        /* Dictionary checker */
+        #checker-input {
+            background: var(--w-cream-soft);
+            border: 2px solid var(--w-walnut);
+            color: var(--w-ink);
+            font-family: 'Fraunces', serif;
+            font-weight: 800;
+            border-radius: 5px;
+        }
+        #checker-input:focus { border-color: var(--w-gold); outline: none; }
+        .valid-word {
+            background: var(--w-moss);
+            color: var(--w-ivory);
+            font-family: 'Playfair Display', serif;
+            border-radius: 4px;
+        }
+        .invalid-word {
+            background: var(--w-bordeaux);
+            color: var(--w-ivory);
+            font-family: 'Playfair Display', serif;
+            border-radius: 4px;
+        }
+
+        /* Footer */
+        .jvdv-footer { color: rgba(60, 35, 15, 0.45); font-family: 'Fraunces', serif; font-style: italic; }
+
+        /* Rules-list */
+        .rules-list li { color: var(--w-wood-dark); font-family: 'Fraunces', serif; }
+        .rules-list strong { color: var(--w-ink); }
+
+        /* Lobby share-area en input fields voor uniformiteit */
+        #share-area input, #lobby-ui input {
+            background: var(--w-cream-soft);
+            border: 1.5px solid var(--w-gold);
+            color: var(--w-ink);
+            font-family: 'Fraunces', serif;
+            border-radius: 6px;
+        }
+
+        /* Action-btn (BEGREPEN in rules-modal etc.) — geen blauwe onderrand meer */
+        button.action-btn {
+            background:
+                repeating-linear-gradient(95deg,
+                    rgba(0,0,0,0.05) 0px,
+                    rgba(0,0,0,0.05) 1px,
+                    transparent 1px,
+                    transparent 4px),
+                linear-gradient(180deg, var(--w-wood-light), var(--w-wood-mid));
+            color: var(--w-ivory);
+            border: 2px solid var(--w-walnut);
+            border-radius: 8px;
+            box-shadow: 0 3px 0 var(--w-walnut), 0 5px 8px rgba(40,20,10,0.2);
+            font-family: 'Playfair Display', serif;
+            font-weight: 700;
+            letter-spacing: 3px;
+        }
+        button.action-btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 1px 0 var(--w-walnut);
+        }
+
+        /* Lobby buttons — zelfde icon/label uitlijning als start-screen */
+        #lobby-ui .mode-btn { justify-content: center; text-align: left; text-transform: uppercase; letter-spacing: 1.5px; gap: 14px; padding: 20px 18px; }
+        #lobby-ui .mode-btn .btn-icon { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        #lobby-ui .mode-btn .btn-icon svg { width: 30px; height: 30px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        #lobby-ui .mode-btn .btn-label { font-family: 'Playfair Display', serif; font-size: 1.05rem; font-weight: 700; line-height: 1.15; flex: 0 1 240px; text-align: left; letter-spacing: 1.5px; }
+
+        /* SCROLL: één scrollbar, in .container. body blijft overflow:hidden. */
+        body { overflow: hidden !important; }
+        .container {
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            max-height: 100dvh;
+            min-height: auto !important;
+            padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px));
+            box-sizing: border-box;
+        }
+        /* Wooden scrollbar — alleen zichtbaar als content scroll nodig heeft */
+        #start-screen, .container {
+            scrollbar-width: thin;
+            scrollbar-color: var(--w-wood-mid) rgba(60, 30, 10, 0.06);
+        }
+        #start-screen::-webkit-scrollbar,
+        .container::-webkit-scrollbar { width: 10px; }
+        #start-screen::-webkit-scrollbar-track,
+        .container::-webkit-scrollbar-track {
+            background: rgba(60, 30, 10, 0.06);
+            border-radius: 5px;
+        }
+        #start-screen::-webkit-scrollbar-thumb,
+        .container::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, var(--w-wood-light), var(--w-wood-mid));
+            border-radius: 5px;
+            border: 1px solid var(--w-walnut);
+        }
+        #start-screen::-webkit-scrollbar-thumb:hover,
+        .container::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, var(--w-wood-mid), var(--w-wood-dark));
+        }
+
+        /* Menu compacter zodat het meestal helemaal past zonder te scrollen */
+        #start-screen { padding: 12px !important; }
+        .menu-card { padding: 18px 22px !important; gap: 12px !important; }
+        .big-logo { width: 60px !important; height: 60px !important; margin: 4px auto 4px !important; }
+        .menu-title { font-size: 1.6rem !important; margin-bottom: 0 !important; }
+        #start-screen .mode-btn { padding: 14px 18px !important; }
+        #start-screen .mode-btn .btn-icon { width: 32px !important; height: 32px !important; }
+        #start-screen .mode-btn .btn-icon svg { width: 28px !important; height: 28px !important; }
+        #start-screen .mode-btn .btn-label { font-size: 1rem !important; }
+        .menu-section-title { margin: 4px 0 2px !important; font-size: 0.78rem; }
+        .info-btn { padding: 6px 10px !important; font-size: 0.78rem !important; }
+
+        /* UNIFORME BREEDTE: alle game-elementen exact 400px met border-box,
+           zodat padding/borders ingeprijsd zijn en niets meer uitsteekt. */
+        .brand-header,
+        #game-status-bar,
+        #win-chance-container,
+        .integrated-game-grid {
+            box-sizing: border-box !important;
+            width: 100% !important;
+            max-width: 400px !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+        }
+        .brand-header {
+            margin-top: 6px !important;
+            margin-bottom: 10px !important;
+            padding: 10px 18px !important;
+        }
+        #win-chance-container { padding: 0 !important; }
+        #win-chance-container canvas { width: 100%; }
+        .integrated-game-grid { padding: 10px !important; }
+
+        @media (max-width: 480px) {
+            .brand-header,
+            #game-status-bar,
+            #win-chance-container,
+            .integrated-game-grid {
+                max-width: 360px !important;
+            }
+            .brand-header { padding: 8px 14px !important; margin-top: 4px !important; margin-bottom: 8px !important; }
+            h1 { font-size: 1.1rem !important; letter-spacing: 3px !important; }
+            #game-status-bar { padding: 10px 16px; }
+            #pending-letter-display { font-size: 1.9rem; }
+            .integrated-game-grid { padding: 8px !important; gap: 5px !important; }
+        }
+
+        /* Dropdown — zichtbare chevron-pijl in goud, en cursor pointer */
+        .hs-daily-select {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            cursor: pointer;
+            padding: 10px 38px 10px 14px;
+            background-image:
+                linear-gradient(45deg, transparent 50%, var(--w-gold) 50%),
+                linear-gradient(135deg, var(--w-gold) 50%, transparent 50%);
+            background-position: calc(100% - 20px) calc(50% - 2px), calc(100% - 14px) calc(50% - 2px);
+            background-size: 7px 7px, 7px 7px;
+            background-repeat: no-repeat;
+            background-color: var(--w-cream-soft);
+        }
+        .hs-daily-select:hover { background-color: var(--w-cream); }
+        .hs-daily-select:focus { border-color: var(--w-walnut); box-shadow: 0 0 0 2px rgba(200, 155, 60, 0.35); }
+        .hs-daily-select option { background: var(--w-cream-soft); color: var(--w-ink); font-family: 'Fraunces', serif; }
     </style>
 </head>
 <body>
@@ -476,16 +1130,25 @@
 <div id="start-screen">
     <div class="menu-card">
         <div class="info-btn" onclick="openRules()" title="Bekijk Spelregels">
-            <span>ℹ️</span> <span>Spelregels</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            <span>Spelregels</span>
         </div>
 
         <svg class="logo-svg big-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-            <rect x="5" y="5" width="42" height="42" rx="4" fill="#1E90FF" />
-            <text x="26" y="38" font-family="Roboto, sans-serif" font-weight="900" font-size="30" fill="white" text-anchor="middle">L</text>
-            <rect x="53" y="5" width="42" height="42" rx="4" fill="#FF6B6B" />
-            <text x="74" y="38" font-family="Roboto, sans-serif" font-weight="900" font-size="30" fill="white" text-anchor="middle">D</text>
-            <rect x="5" y="53" width="42" height="42" rx="4" fill="#FF6B6B" />
-            <rect x="53" y="53" width="42" height="42" rx="4" fill="#1E90FF" />
+            <defs>
+                <linearGradient id="tileGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#f9efd5"/>
+                    <stop offset="100%" stop-color="#ebdfc3"/>
+                </linearGradient>
+            </defs>
+            <g transform="rotate(-9 30 52)">
+                <rect x="10" y="24" width="40" height="56" rx="5" fill="url(#tileGrad)" stroke="#3b2618" stroke-width="2.5"/>
+                <text x="30" y="63" font-family="'Playfair Display', Georgia, serif" font-weight="900" font-size="36" fill="#2d1f15" text-anchor="middle">L</text>
+            </g>
+            <g transform="rotate(7 65 52)">
+                <rect x="48" y="22" width="40" height="56" rx="5" fill="url(#tileGrad)" stroke="#3b2618" stroke-width="2.5"/>
+                <text x="68" y="61" font-family="'Playfair Display', Georgia, serif" font-weight="900" font-size="36" fill="#2d1f15" text-anchor="middle">D</text>
+            </g>
         </svg>
 
         <div style="text-align: center; margin-bottom: 20px;">
@@ -552,11 +1215,15 @@
 
 <div class="container">
     <div class="brand-header">
-        <svg class="logo-svg" style="width:30px; height:30px;" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-            <rect x="5" y="5" width="42" height="42" rx="4" fill="#1E90FF" />
-            <rect x="53" y="5" width="42" height="42" rx="4" fill="#FF6B6B" />
-            <rect x="5" y="53" width="42" height="42" rx="4" fill="#FF6B6B" />
-            <rect x="53" y="53" width="42" height="42" rx="4" fill="#1E90FF" />
+        <svg class="logo-svg" style="width:34px; height:34px;" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <g transform="rotate(-9 30 52)">
+                <rect x="10" y="24" width="40" height="56" rx="5" fill="#f9efd5" stroke="#3b2618" stroke-width="3"/>
+                <text x="30" y="63" font-family="'Playfair Display', Georgia, serif" font-weight="900" font-size="38" fill="#2d1f15" text-anchor="middle">L</text>
+            </g>
+            <g transform="rotate(7 65 52)">
+                <rect x="48" y="22" width="40" height="56" rx="5" fill="#f9efd5" stroke="#3b2618" stroke-width="3"/>
+                <text x="68" y="61" font-family="'Playfair Display', Georgia, serif" font-weight="900" font-size="38" fill="#2d1f15" text-anchor="middle">D</text>
+            </g>
         </svg>
         <div class="title-block">
             <h1 style="font-size: 1.2rem;">LetterDuel</h1>
@@ -581,15 +1248,21 @@
         </div>
 
         <div id="win-chance-container">
-            <canvas id="win-chance-canvas" width="450" height="40"></canvas>
+            <canvas id="win-chance-canvas" width="450" height="40"
+                title="Deze balk geeft de tussenstand aan. Maar let op: het kan nog alle kanten op!"
+                style="cursor: help;"
+                onclick="showFlashMessage('TUSSENSTAND', 'Deze balk geeft de tussenstand aan. Maar let op: het kan nog alle kanten op!', 3200)"></canvas>
         </div>
 
         <div class="integrated-game-grid" id="my-grid-display"></div>
         
         <div class="control-row">
                <button id="scramble-btn" class="mode-btn btn-scramble" onclick="handleScrambleStart()">🔀 Scramble</button>
-               <button id="check-btn" class="mode-btn btn-check-small" onclick="openChecker()">🔍 Check woordenboek</button>
-             <button id="simulate-btn" class="mode-btn btn-check-small" onclick="toggleSimulation()">🧪 Simulatie</button>
+               <button id="check-btn" class="mode-btn btn-check-small" onclick="openChecker()">
+                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:4px;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                   Check woordenboek
+               </button>
+             <button id="simulate-btn" class="mode-btn btn-check-small" onclick="toggleSimulation()">Simulatie</button>
              <button class="action-btn" onclick="location.href = window.location.pathname" style="background:#333; color:#aaa; font-size:0.8rem; padding: 10px 20px; box-shadow:none;">Stoppen</button>
         </div>
         <div style="text-align:center;">
@@ -634,13 +1307,13 @@
             </div>
         </div>
         <div id="daily-share-controls" style="display:none; margin-top: 10px;">
-            <div style="font-size:0.8rem; color:#95a5a6; margin-bottom:10px; text-transform:uppercase; font-weight:700;">DEEL JE DAILY RESULTAAT</div>
+            <div id="share-section-title" style="font-size:0.78rem; color:var(--w-wood-dark); margin-bottom:10px; text-transform:uppercase; font-weight:700; font-family:'Playfair Display',serif; letter-spacing:3px;">DEEL JE RESULTAAT</div>
             <div class="control-row" style="margin-top:0; margin-bottom:8px;">
                 <button class="mode-btn btn-online" style="padding:10px 12px; font-size:0.8rem;" onclick="shareDailyResult('x')">𝕏 Twitter</button>
                 <button class="mode-btn btn-online" style="padding:10px 12px; font-size:0.8rem;" onclick="shareDailyResult('facebook')">Facebook</button>
                 <button class="mode-btn btn-online" style="padding:10px 12px; font-size:0.8rem;" onclick="shareDailyResult('whatsapp')">WhatsApp</button>
             </div>
-            <div id="daily-share-hint" style="font-size:0.72rem; color:#8ea3b7; margin:2px 0 10px; line-height:1.35;"></div>
+            <div id="daily-share-hint" style="font-size:0.72rem; color:var(--w-wood-dark); margin:2px 0 10px; line-height:1.35; font-family:'Fraunces',serif; font-style:italic;"></div>
         </div>
         <button class="action-btn" style="margin-top:8px;" onclick="location.href = window.location.pathname">TERUG NAAR MENU</button>
     </div>
@@ -670,7 +1343,10 @@
             <div style="color:#666; padding:20px;">Laden...</div>
         </div>
         
-        <div style="margin-top:10px; font-size:0.7rem; color:#444; cursor:pointer;" onclick="clearHighscoreCache()">🔄 Verversen</div>
+        <div style="margin-top:10px; font-size:0.78rem; color:var(--w-wood-dark); cursor:pointer; font-family:'Fraunces',serif; font-style:italic; display:inline-flex; align-items:center; gap:6px;" onclick="clearHighscoreCache()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            <span>Verversen</span>
+        </div>
     </div>
 </div>
 
@@ -2152,7 +2828,7 @@ function startSinglePlayer(difficulty) {
             document.getElementById('daily-share-controls').style.display = 'none';
             startSoloTimer(SINGLE_TIMER_MS);
 
-            showFlashMessage("MUNT OPGOOIEN...", "🪙", 1500);
+            showFlashMessage("MUNT OPGOOIEN", "—", 1500);
             setTimeout(() => {
                 if (iStart) {
                     isMyPickTurn = true;
@@ -2305,7 +2981,7 @@ function joinFirebaseGameById(gameId) {
 
         if (lastStatus === "waiting" && data.status === "playing") {
              timerExpiredHandled = false;
-             showFlashMessage("MUNT OPGOOIEN...", "🪙", 1500);
+             showFlashMessage("MUNT OPGOOIEN", "—", 1500);
              setTimeout(() => {
                  if(data.turn === uid) showFlashMessage("Jij Wint!", "JIJ MAG STARTEN");
                  else showFlashMessage("Helaas!", "TEGENSTANDER BEGINT");
@@ -2726,15 +3402,22 @@ function updateWinChanceVisualization() {
     const canvas = document.getElementById('win-chance-canvas'); if (!canvas) return;
     const ctx = canvas.getContext('2d'); const w = canvas.width; const h = canvas.height;
     const pct = calculateWinProbabilityValue(myGrid, opponentGrid);
-    ctx.clearRect(0, 0, w, h); ctx.fillStyle = '#1e272e'; ctx.fillRect(0, 0, w, h);
+    ctx.clearRect(0, 0, w, h);
+    // Wooden achtergrond
+    ctx.fillStyle = '#3b2618'; ctx.fillRect(0, 0, w, h);
     const splitX = (w * pct) / 100;
-    let grd = ctx.createLinearGradient(0, 0, splitX, 0);
-    grd.addColorStop(0, "#00d2d3"); grd.addColorStop(1, "#2980b9");
+    // Mosgroen voor jij, bordeaux voor opp
+    const grd = ctx.createLinearGradient(0, 0, splitX, 0);
+    grd.addColorStop(0, "#6e9056"); grd.addColorStop(1, "#5c7548");
     ctx.fillStyle = grd; ctx.fillRect(0, 0, splitX, h);
-    ctx.fillStyle = "#ff4757"; ctx.fillRect(splitX, 0, w-splitX, h);
-    ctx.beginPath(); ctx.moveTo(splitX, 0); ctx.lineTo(splitX, h); ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
-    ctx.font = "800 14px 'Roboto', sans-serif"; ctx.textBaseline = "middle";
-    ctx.fillStyle = "white"; ctx.textAlign = "left"; ctx.fillText(`JIJ: ${Math.round(pct)}%`, 10, h/2);
+    const grd2 = ctx.createLinearGradient(splitX, 0, w, 0);
+    grd2.addColorStop(0, "#c44a3a"); grd2.addColorStop(1, "#a13a2a");
+    ctx.fillStyle = grd2; ctx.fillRect(splitX, 0, w-splitX, h);
+    // Gouden scheidingslijn
+    ctx.beginPath(); ctx.moveTo(splitX, 0); ctx.lineTo(splitX, h); ctx.strokeStyle = "#c89b3c"; ctx.lineWidth = 2; ctx.stroke();
+    // Tekst in serif ivoor
+    ctx.font = "800 14px 'Fraunces', Georgia, serif"; ctx.textBaseline = "middle";
+    ctx.fillStyle = "#f9efd5"; ctx.textAlign = "left"; ctx.fillText(`JIJ: ${Math.round(pct)}%`, 10, h/2);
     ctx.textAlign = "right"; ctx.fillText(`${opponentName}: ${Math.round(100 - pct)}%`, w - 10, h/2);
 }
 
@@ -2888,10 +3571,15 @@ async function saveDailyResult(myScore, oppScore) {
 }
 
 function createDailyShareText(channel) {
+    const isDaily = gameMode === 'daily';
     const dateKey = lastDailyResultPayload?.dateKey || currentDailyDateKey || getUtcDateKey();
-    const dailyNumber = getDailySequenceNumber(dateKey);
-    const dailyLabel = dailyNumber ? `Daily #${dailyNumber} ${dateKey}` : `Daily ${dateKey}`;
-    const dailyTags = dailyNumber ? `#letterduel${dailyNumber} #daily${dailyNumber}` : '#letterduel #daily';
+    const dailyNumber = isDaily ? getDailySequenceNumber(dateKey) : null;
+    const dailyLabel = isDaily
+        ? (dailyNumber ? `Daily #${dailyNumber} ${dateKey}` : `Daily ${dateKey}`)
+        : 'LetterDuel';
+    const dailyTags = isDaily
+        ? (dailyNumber ? `#letterduel${dailyNumber} #daily${dailyNumber}` : '#letterduel #daily')
+        : '#letterduel';
     const playerScore = Number.isFinite(lastDailyResultPayload?.playerScore)
         ? lastDailyResultPayload.playerScore
         : calculatePoints(myGrid);
@@ -2902,6 +3590,7 @@ function createDailyShareText(channel) {
         ? lastDailyResultPayload.won
         : playerScore > aiScore;
     const resultWord = won ? 'Gewonnen' : 'Verloren';
+    const opponentLabel = gameMode === 'online' ? 'Opp.' : 'Comp.';
 
     const colorMap = {
         H: '🟩',
@@ -2918,7 +3607,7 @@ function createDailyShareText(channel) {
             'letterduel.net',
             dailyLabel,
             `🧠 My score: ${playerScore}`,
-            `🤖 Comp. score: ${aiScore}`,
+            `🤖 ${opponentLabel} score: ${aiScore}`,
             dailyTags,
             ''
         ];
@@ -3011,17 +3700,28 @@ function drawDailyGridCard(ctx, grid, x, y, title, score) {
     const gridX = x + Math.floor((cardWidth - totalBoardWidth) / 2);
     const gridY = y + 96;
 
+    // Crème perkament-kaart met gouden randje
     drawRoundedRect(ctx, x, y, cardWidth, cardHeight, 16);
-    ctx.fillStyle = 'rgba(10,16,26,0.55)';
+    ctx.fillStyle = '#fbf4e2';
     ctx.fill();
+    ctx.strokeStyle = '#c89b3c';
+    ctx.lineWidth = 3;
+    drawRoundedRect(ctx, x + 1.5, y + 1.5, cardWidth - 3, cardHeight - 3, 14);
+    ctx.stroke();
 
-    ctx.font = "900 42px Roboto, sans-serif";
-    ctx.fillStyle = '#ecf0f1';
+    // Titel in serif walnoot
+    ctx.font = "900 42px 'Playfair Display', Georgia, serif";
+    ctx.fillStyle = '#3b2618';
     ctx.textAlign = 'left';
-    ctx.fillText(`${title}: ${score}`, x + 20, y + 56);
+    ctx.fillText(`${title}: ${score}`, x + 22, y + 58);
 
     const snapshot = buildShareGridSnapshot(grid);
     const words = getScoringWords(grid);
+
+    // Donker walnoot bord-onderlaag
+    drawRoundedRect(ctx, gridX - 8, gridY - 8, gridSize + scoreSize + 22, gridSize + scoreSize + 22, 8);
+    ctx.fillStyle = '#3b2618';
+    ctx.fill();
 
     for (let row = 0; row < 5; row++) {
         for (let col = 0; col < 5; col++) {
@@ -3030,60 +3730,67 @@ function drawDailyGridCard(ctx, grid, x, y, title, score) {
             const cy = gridY + row * cellSize;
             const letter = String(grid[idx] || '').toUpperCase();
 
-            ctx.fillStyle = '#2e3440';
-            ctx.fillRect(cx + 2, cy + 2, cellSize - 4, cellSize - 4);
-            ctx.strokeStyle = '#3f4a59';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(cx + 2, cy + 2, cellSize - 4, cellSize - 4);
-
             if (letter) {
-                ctx.fillStyle = '#ecf0f1';
-                ctx.font = '900 30px Roboto, sans-serif';
+                // Ivoren tegel
+                ctx.fillStyle = '#f9efd5';
+                ctx.fillRect(cx + 3, cy + 3, cellSize - 6, cellSize - 6);
+                ctx.strokeStyle = '#74532e';
+                ctx.lineWidth = 1.5;
+                ctx.strokeRect(cx + 3, cy + 3, cellSize - 6, cellSize - 6);
+                ctx.fillStyle = '#2d1f15';
+                ctx.font = "900 32px 'Fraunces', Georgia, serif";
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(letter, cx + (cellSize / 2), cy + (cellSize / 2) + 1);
+                ctx.fillText(letter, cx + (cellSize / 2), cy + (cellSize / 2) + 2);
+            } else {
+                // Lege cel: donkere recess
+                ctx.fillStyle = '#2a1810';
+                ctx.fillRect(cx + 3, cy + 3, cellSize - 6, cellSize - 6);
             }
         }
     }
 
+    // Woord-outlines: mos voor rijen, goud voor kolommen
     words.forEach((word) => {
         const outlineX = gridX + (word.c * cellSize) + 3;
         const outlineY = gridY + (word.r * cellSize) + 3;
         const outlineW = word.type === 'row' ? (word.len * cellSize) - 6 : cellSize - 6;
         const outlineH = word.type === 'col' ? (word.len * cellSize) - 6 : cellSize - 6;
 
-        ctx.strokeStyle = word.type === 'row' ? '#2ecc71' : '#00d2d3';
+        ctx.strokeStyle = word.type === 'row' ? '#5c7548' : '#c89b3c';
         ctx.shadowBlur = 8;
-        ctx.shadowColor = word.type === 'row' ? 'rgba(46,204,113,0.65)' : 'rgba(0,210,211,0.65)';
+        ctx.shadowColor = word.type === 'row' ? 'rgba(92,117,72,0.7)' : 'rgba(200,155,60,0.7)';
         ctx.lineWidth = 4;
-        drawRoundedRect(ctx, outlineX, outlineY, outlineW, outlineH, 16);
+        drawRoundedRect(ctx, outlineX, outlineY, outlineW, outlineH, 12);
         ctx.stroke();
         ctx.shadowBlur = 0;
     });
 
+    // Rij-scores: walnoot blokjes met goud serif
     for (let r = 0; r < 5; r++) {
         const rowScore = snapshot.rowScores[r] || 0;
         const sx = gridX + gridSize + 6;
         const sy = gridY + r * cellSize + 2;
 
-        ctx.fillStyle = '#222';
+        ctx.fillStyle = '#2a1810';
         ctx.fillRect(sx, sy, scoreSize - 4, cellSize - 4);
-        ctx.fillStyle = '#00d2d3';
-        ctx.font = "900 28px Roboto, sans-serif";
+        ctx.fillStyle = '#c89b3c';
+        ctx.font = "900 28px 'Fraunces', Georgia, serif";
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(rowScore > 0 ? String(rowScore) : '-', sx + (scoreSize - 4) / 2, sy + (cellSize - 4) / 2 + 1);
     }
 
+    // Kolom-scores
     for (let c = 0; c < 5; c++) {
         const colScore = snapshot.colScores[c] || 0;
         const sx = gridX + c * cellSize + 2;
         const sy = gridY + gridSize + 6;
 
-        ctx.fillStyle = '#222';
+        ctx.fillStyle = '#2a1810';
         ctx.fillRect(sx, sy, cellSize - 4, scoreSize - 4);
-        ctx.fillStyle = '#00d2d3';
-        ctx.font = "900 28px Roboto, sans-serif";
+        ctx.fillStyle = '#c89b3c';
+        ctx.font = "900 28px 'Fraunces', Georgia, serif";
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(colScore > 0 ? String(colScore) : '-', sx + (cellSize - 4) / 2, sy + (scoreSize - 4) / 2 + 1);
@@ -3114,8 +3821,15 @@ function renderDailyShareGridCanvas(sourcePayload = null) {
     canvas.height = boardHeight + (padding * 2);
 
     const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#0d1727';
+    // Donker walnoot achtergrond met subtiele houtnerf
+    const bg = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    bg.addColorStop(0, '#6e4626');
+    bg.addColorStop(1, '#3b2618');
+    ctx.fillStyle = bg;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Houtnerf-strepen
+    ctx.fillStyle = 'rgba(0,0,0,0.06)';
+    for (let i = 0; i < canvas.width; i += 4) ctx.fillRect(i, 0, 1, canvas.height);
 
     const gridX = padding;
     const gridY = padding;
@@ -3130,18 +3844,20 @@ function renderDailyShareGridCanvas(sourcePayload = null) {
             const cy = gridY + row * cellSize;
             const letter = String(sourceGrid[idx] || '').toUpperCase();
 
-            ctx.fillStyle = '#2e3440';
-            ctx.fillRect(cx + 2, cy + 2, cellSize - 4, cellSize - 4);
-            ctx.strokeStyle = '#3f4a59';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(cx + 2, cy + 2, cellSize - 4, cellSize - 4);
-
             if (letter) {
-                ctx.fillStyle = '#ecf0f1';
-                ctx.font = '900 34px Roboto, sans-serif';
+                ctx.fillStyle = '#f9efd5';
+                ctx.fillRect(cx + 3, cy + 3, cellSize - 6, cellSize - 6);
+                ctx.strokeStyle = '#74532e';
+                ctx.lineWidth = 1.5;
+                ctx.strokeRect(cx + 3, cy + 3, cellSize - 6, cellSize - 6);
+                ctx.fillStyle = '#2d1f15';
+                ctx.font = "900 36px 'Fraunces', Georgia, serif";
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(letter, cx + (cellSize / 2), cy + (cellSize / 2) + 1);
+                ctx.fillText(letter, cx + (cellSize / 2), cy + (cellSize / 2) + 2);
+            } else {
+                ctx.fillStyle = '#2a1810';
+                ctx.fillRect(cx + 3, cy + 3, cellSize - 6, cellSize - 6);
             }
         }
     }
@@ -3152,11 +3868,11 @@ function renderDailyShareGridCanvas(sourcePayload = null) {
         const outlineW = word.type === 'row' ? (word.len * cellSize) - 6 : cellSize - 6;
         const outlineH = word.type === 'col' ? (word.len * cellSize) - 6 : cellSize - 6;
 
-        ctx.strokeStyle = word.type === 'row' ? '#2ecc71' : '#00d2d3';
+        ctx.strokeStyle = word.type === 'row' ? '#5c7548' : '#c89b3c';
         ctx.shadowBlur = 8;
-        ctx.shadowColor = word.type === 'row' ? 'rgba(46,204,113,0.65)' : 'rgba(0,210,211,0.65)';
+        ctx.shadowColor = word.type === 'row' ? 'rgba(92,117,72,0.7)' : 'rgba(200,155,60,0.7)';
         ctx.lineWidth = 4;
-        drawRoundedRect(ctx, outlineX, outlineY, outlineW, outlineH, 16);
+        drawRoundedRect(ctx, outlineX, outlineY, outlineW, outlineH, 12);
         ctx.stroke();
         ctx.shadowBlur = 0;
     });
@@ -3166,10 +3882,10 @@ function renderDailyShareGridCanvas(sourcePayload = null) {
         const sx = gridX + gridSize + gap;
         const sy = gridY + r * cellSize + 2;
 
-        ctx.fillStyle = '#222';
+        ctx.fillStyle = '#2a1810';
         ctx.fillRect(sx, sy, scoreSize - 4, cellSize - 4);
-        ctx.fillStyle = '#00d2d3';
-        ctx.font = '900 30px Roboto, sans-serif';
+        ctx.fillStyle = '#c89b3c';
+        ctx.font = "900 30px 'Fraunces', Georgia, serif";
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(rowScore > 0 ? String(rowScore) : '-', sx + (scoreSize - 4) / 2, sy + (cellSize - 4) / 2 + 1);
@@ -3180,10 +3896,10 @@ function renderDailyShareGridCanvas(sourcePayload = null) {
         const sx = gridX + c * cellSize + 2;
         const sy = gridY + gridSize + gap;
 
-        ctx.fillStyle = '#222';
+        ctx.fillStyle = '#2a1810';
         ctx.fillRect(sx, sy, cellSize - 4, scoreSize - 4);
-        ctx.fillStyle = '#00d2d3';
-        ctx.font = '900 30px Roboto, sans-serif';
+        ctx.fillStyle = '#c89b3c';
+        ctx.font = "900 30px 'Fraunces', Georgia, serif";
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(colScore > 0 ? String(colScore) : '-', sx + (cellSize - 4) / 2, sy + (scoreSize - 4) / 2 + 1);
@@ -3198,25 +3914,41 @@ function renderDailyResultCardCanvas(sourcePayload = null) {
     canvas.height = 1400;
     const ctx = canvas.getContext('2d');
 
-    const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-    grad.addColorStop(0, '#0f1d35');
-    grad.addColorStop(1, '#11284f');
+    // Donker walnoot achtergrond met houtnerf
+    const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    grad.addColorStop(0, '#6e4626');
+    grad.addColorStop(1, '#2a1810');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'rgba(0,0,0,0.05)';
+    for (let i = 0; i < canvas.width; i += 5) ctx.fillRect(i, 0, 1, canvas.height);
 
+    // Perkament-kaart binnen, met dubbele rand (walnoot + goud)
     drawRoundedRect(ctx, 70, 70, 1060, 1260, 24);
-    ctx.fillStyle = 'rgba(7,12,20,0.4)';
+    ctx.fillStyle = '#fbf4e2';
     ctx.fill();
+    ctx.strokeStyle = '#3b2618';
+    ctx.lineWidth = 4;
+    drawRoundedRect(ctx, 72, 72, 1056, 1256, 22);
+    ctx.stroke();
+    ctx.strokeStyle = '#c89b3c';
+    ctx.lineWidth = 3;
+    drawRoundedRect(ctx, 84, 84, 1032, 1232, 16);
+    ctx.stroke();
 
-    ctx.fillStyle = '#00d2d3';
-    ctx.font = "900 68px Roboto, sans-serif";
+    // Titel in Playfair Display walnoot
+    const isDaily = gameMode === 'daily';
+    ctx.fillStyle = '#3b2618';
+    ctx.font = "900 72px 'Playfair Display', Georgia, serif";
     ctx.textAlign = 'center';
-    ctx.fillText('LETTERDUEL DAILY', 600, 165);
+    ctx.fillText(isDaily ? 'LETTERDUEL DAILY' : 'LETTERDUEL', 600, 180);
 
-    const dateLabel = sourcePayload?.dateKey || currentDailyDateKey || getUtcDateKey();
-    ctx.fillStyle = '#ecf0f1';
-    ctx.font = "700 38px Roboto, sans-serif";
-    ctx.fillText(dateLabel, 600, 220);
+    const subLabel = isDaily
+        ? (sourcePayload?.dateKey || currentDailyDateKey || getUtcDateKey())
+        : (gameMode === 'online' ? 'Online duel' : 'Tegen Computer');
+    ctx.fillStyle = '#7a5b3a';
+    ctx.font = "italic 600 36px 'Fraunces', Georgia, serif";
+    ctx.fillText(subLabel, 600, 230);
 
     const resolvedPayload = sourcePayload || lastDailyResultPayload;
     const sourcePlayerGrid = Array.isArray(sourcePayload?.playerGrid) ? sourcePayload.playerGrid : myGrid;
@@ -3226,21 +3958,25 @@ function renderDailyResultCardCanvas(sourcePayload = null) {
     const aiScore = resolvedPayload ? resolvedPayload.aiScore : calculatePoints(sourceAiGrid);
     const won = resolvedPayload ? resolvedPayload.won : (myScore > aiScore);
 
-    ctx.fillStyle = '#ecf0f1';
-    ctx.font = "900 88px Roboto, sans-serif";
-    ctx.fillText(`JIJ ${myScore}  •  AI ${aiScore}`, 600, 320);
+    // Score-regel in serif inkt
+    const oppLabel = gameMode === 'online' ? 'OPP.' : 'COMPUTER';
+    ctx.fillStyle = '#2d1f15';
+    ctx.font = "800 84px 'Fraunces', Georgia, serif";
+    ctx.fillText(`JIJ ${myScore}  ·  ${oppLabel} ${aiScore}`, 600, 335);
 
-    ctx.font = "900 64px Roboto, sans-serif";
-    ctx.fillStyle = won ? '#2ecc71' : '#ff4757';
-    ctx.fillText(won ? 'GEWONNEN' : 'VERLOREN', 600, 400);
+    // Gewonnen/verloren in mos of bordeaux
+    ctx.font = "900 64px 'Playfair Display', Georgia, serif";
+    ctx.fillStyle = won ? '#5c7548' : '#a13a2a';
+    ctx.fillText(won ? '— GEWONNEN —' : '— VERLOREN —', 600, 415);
 
     drawDailyGridCard(ctx, sourcePlayerGrid, 350, 470, 'Jij', myScore);
 
-    ctx.fillStyle = '#ecf0f1';
-    ctx.font = "700 34px Roboto, sans-serif";
-    ctx.fillText(`Speler: ${sourcePayload?.name || myUsername || 'Player'}`, 600, 1160);
-    ctx.font = "700 30px Roboto, sans-serif";
-    ctx.fillText('Speel vandaag op letterduel.pages.dev', 600, 1230);
+    // Footer in Fraunces italic
+    ctx.fillStyle = '#7a5b3a';
+    ctx.font = "italic 600 32px 'Fraunces', Georgia, serif";
+    ctx.fillText(`Speler: ${sourcePayload?.name || myUsername || 'Player'}`, 600, 1170);
+    ctx.font = "italic 500 28px 'Fraunces', Georgia, serif";
+    ctx.fillText('letterduel.pages.dev', 600, 1230);
 
     return canvas;
 }
@@ -3260,11 +3996,7 @@ async function downloadDailyResultCard() {
 }
 
 async function shareDailyResult(channel, payloadOverride = null) {
-    if (gameMode !== 'daily' && !payloadOverride) {
-        showFlashMessage('Daily', 'Start eerst een Daily match');
-        return;
-    }
-
+    // Delen werkt nu voor alle modi (daily, single-player, online).
     const prevPayload = lastDailyResultPayload;
     const prevDateKey = currentDailyDateKey;
 
@@ -3474,8 +4206,8 @@ function showSoloTimeoutResult() {
     }
 
     const winnerTxt = document.getElementById('winner-display');
-    winnerTxt.innerText = "⏰ TIJD OP - VERLOREN!";
-    winnerTxt.style.color = "var(--accent)";
+    winnerTxt.innerText = "— TIJD OP · VERLOREN —";
+    winnerTxt.style.color = "var(--w-bordeaux)";
     document.getElementById('my-final-score').innerText = myScore;
     document.getElementById('opp-final-score').innerText = oppScore;
     document.getElementById('opponent-name-result').innerText = opponentName;
@@ -3483,7 +4215,7 @@ function showSoloTimeoutResult() {
     renderMiniGridWithOutlines(opponentGrid, 'opp-mini-grid', 'opp-row-scores', 'opp-col-scores');
 
     const dailyShareControls = document.getElementById('daily-share-controls');
-    if (dailyShareControls) dailyShareControls.style.display = gameMode === 'daily' ? 'block' : 'none';
+    if (dailyShareControls) { dailyShareControls.style.display = 'block'; updateShareSectionLabel(); }
 
     document.getElementById('result-modal').style.display = 'flex';
     keyboard.style.display = 'none';
@@ -3515,11 +4247,11 @@ function showTimeoutResult(iMyTimeout) {
     clearInterval(timerInterval);
     const winnerTxt = document.getElementById('winner-display');
     if (iMyTimeout) {
-        winnerTxt.innerText = "⏰ TIJD OP - VERLOREN!";
-        winnerTxt.style.color = "var(--accent)";
+        winnerTxt.innerText = "— TIJD OP · VERLOREN —";
+        winnerTxt.style.color = "var(--w-bordeaux)";
     } else {
-        winnerTxt.innerText = "⏰ TEGENSTANDER TIJD OP!";
-        winnerTxt.style.color = "var(--secondary)";
+        winnerTxt.innerText = "— TEGENSTANDER TIJD OP —";
+        winnerTxt.style.color = "var(--w-moss)";
     }
     document.getElementById('my-final-score').innerText = calculatePoints(myGrid);
     document.getElementById('opp-final-score').innerText = calculatePoints(opponentGrid);
@@ -3572,19 +4304,29 @@ function finishGame() {
     document.getElementById('opponent-name-result').innerText = opponentName;
     
     const winnerTxt = document.getElementById('winner-display');
-    if (myScore > oppScore) { winnerTxt.innerText = "🏆 GEWONNEN!"; winnerTxt.style.color = "var(--secondary)"; }
-    else if (oppScore > myScore) { winnerTxt.innerText = "❌ VERLOREN..."; winnerTxt.style.color = "var(--hard)"; }
-    else { winnerTxt.innerText = "🤝 GELIJKSPEL"; winnerTxt.style.color = "#ecf0f1"; }
+    if (myScore > oppScore) { winnerTxt.innerText = "— GEWONNEN —"; winnerTxt.style.color = "var(--w-moss)"; }
+    else if (oppScore > myScore) { winnerTxt.innerText = "— VERLOREN —"; winnerTxt.style.color = "var(--w-bordeaux)"; }
+    else { winnerTxt.innerText = "— GELIJKSPEL —"; winnerTxt.style.color = "var(--w-wood-dark)"; }
     renderMiniGridWithOutlines(myGrid, 'my-mini-grid', 'my-row-scores', 'my-col-scores');
     renderMiniGridWithOutlines(opponentGrid, 'opp-mini-grid', 'opp-row-scores', 'opp-col-scores');
 
     const dailyShareControls = document.getElementById('daily-share-controls');
     if (dailyShareControls) {
-        dailyShareControls.style.display = gameMode === 'daily' ? 'block' : 'none';
+        dailyShareControls.style.display = 'block';
+        updateShareSectionLabel();
     }
 
     document.getElementById('result-modal').style.display = 'flex';
     keyboard.style.display = 'none';
+}
+
+function updateShareSectionLabel() {
+    const title = document.getElementById('share-section-title');
+    if (title) {
+        title.textContent = gameMode === 'daily' ? 'DEEL JE DAILY RESULTAAT' : 'DEEL JE RESULTAAT';
+    }
+    // Zorg dat de Ctrl+V hint actueel is voor desktop/mobiel
+    updateShareHintText();
 }
 
 function renderMiniGridWithOutlines(gridData, gridId, rowScoresId, colScoresId) {

@@ -1,8 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect x="5" y="5" width="42" height="42" rx="6" fill="#1E90FF"/>
-  <text x="26" y="36" font-family="Roboto, Arial, sans-serif" font-weight="900" font-size="24" fill="#ffffff" text-anchor="middle">L</text>
-  <rect x="53" y="5" width="42" height="42" rx="6" fill="#FF6B6B"/>
-  <text x="74" y="36" font-family="Roboto, Arial, sans-serif" font-weight="900" font-size="24" fill="#ffffff" text-anchor="middle">D</text>
-  <rect x="5" y="53" width="42" height="42" rx="6" fill="#FF6B6B"/>
-  <rect x="53" y="53" width="42" height="42" rx="6" fill="#1E90FF"/>
+  <g transform="rotate(-9 30 52)">
+    <rect x="10" y="24" width="40" height="56" rx="5" fill="#f9efd5" stroke="#3b2618" stroke-width="3"/>
+    <text x="30" y="63" font-family="'Playfair Display', Georgia, serif" font-weight="900" font-size="36" fill="#2d1f15" text-anchor="middle">L</text>
+  </g>
+  <g transform="rotate(7 65 52)">
+    <rect x="48" y="22" width="40" height="56" rx="5" fill="#f9efd5" stroke="#3b2618" stroke-width="3"/>
+    <text x="68" y="61" font-family="'Playfair Display', Georgia, serif" font-weight="900" font-size="36" fill="#2d1f15" text-anchor="middle">D</text>
+  </g>
 </svg>
