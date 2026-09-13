@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pagina niet gevonden &middot; LetterDuel</title>
+    <meta name="robots" content="noindex">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <style>
+        :root {
+            --w-cream-soft: #fbf4e2;
+            --w-wood-dark: #6e4626;
+            --w-walnut: #3b2618;
+            --w-gold: #c89b3c;
+            --w-ink: #2d1f15;
+            --w-muted: #7a5b3a;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            min-height: 100dvh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            font-family: Georgia, 'Times New Roman', serif;
+            color: var(--w-ink);
+            background: linear-gradient(180deg, #f7ecd1 0%, #efe1c2 100%);
+        }
+        .card {
+            width: 100%;
+            max-width: 460px;
+            text-align: center;
+            padding: 40px 28px;
+            background: var(--w-cream-soft);
+            border: 3px solid var(--w-gold);
+            border-radius: 18px;
+            box-shadow: 0 10px 26px rgba(40, 20, 10, 0.22);
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(3, 54px);
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 26px;
+        }
+        .tile {
+            height: 54px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            background: var(--w-walnut);
+            color: #f9efd5;
+            font-size: 1.7rem;
+            font-weight: bold;
+        }
+        h1 {
+            margin: 0 0 10px;
+            font-size: 1.45rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        p {
+            margin: 0 0 26px;
+            color: var(--w-muted);
+            line-height: 1.5;
+        }
+        a.button {
+            display: inline-block;
+            padding: 14px 30px;
+            border-radius: 10px;
+            background: var(--w-wood-dark);
+            color: #f9efd5;
+            text-decoration: none;
+            font-weight: bold;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            border: 2px solid var(--w-walnut);
+        }
+        a.button:hover { background: var(--w-walnut); }
+    </style>
+</head>
+<body>
+    <main class="card">
+        <div class="grid" aria-hidden="true">
+            <div class="tile">4</div>
+            <div class="tile">0</div>
+            <div class="tile">4</div>
+        </div>
+        <h1>Deze zet bestaat niet</h1>
+        <p>De pagina die je zoekt staat niet op het bord. Misschien is de link verlopen of verkeerd overgetypt.</p>
+        <a class="button" href="/">Terug naar LetterDuel</a>
+    </main>
+</body>
+</html>

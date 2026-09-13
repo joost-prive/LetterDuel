@@ -76,6 +76,7 @@ export async function onRequestGet(context) {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(title)}</title>
   <meta name="description" content="${escapeHtml(description)}" />
+  <meta name="robots" content="noindex" />
 
   <meta property="og:type" content="website" />
   <meta property="og:title" content="${escapeHtml(title)}" />
