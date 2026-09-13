@@ -3207,7 +3207,11 @@ function handleKey(letter) {
         activeCellIndex = null;
         updateUI();
 
-        const aiEmptyIndex = getBestPositionForLetter(opponentGrid, letter).index;
+        // In de daily speelt de computer altijd op 'hard', zodat de puzzel voor
+        // iedereen dezelfde tegenstander heeft. In de losse modus telt het
+        // gekozen niveau.
+        const aiLevel = gameMode === 'daily' ? 'hard' : aiDifficulty;
+        const aiEmptyIndex = chooseAiPlacement(opponentGrid, letter, aiLevel).index;
         if(aiEmptyIndex !== -1) opponentGrid[aiEmptyIndex] = letter;
 
         if (gameMode !== 'daily') updateWinChanceVisualization();
@@ -3263,7 +3267,9 @@ function handleDailyAiReaction() {
         const nextLetter = currentDailyPuzzle.aiSequence[dailyAiSequenceIndex];
         dailyAiSequenceIndex += 1;
 
-        const aiPlacement = getBestPositionForLetter(opponentGrid, nextLetter).index;
+        // 'hard' is deterministisch (geen ruis), dus de daily blijft voor
+        // iedereen exact dezelfde puzzel.
+        const aiPlacement = chooseAiPlacement(opponentGrid, nextLetter, 'hard').index;
         if (aiPlacement !== -1) {
             opponentGrid[aiPlacement] = nextLetter;
             pendingLetter = nextLetter;
@@ -3289,7 +3295,8 @@ function performMoveSinglePlayer(index, letter) { myGrid[index] = letter; render
 
 function handleAiReaction(letterFromPlayer) {
     if (letterFromPlayer) {
-        opponentGrid[getBestPositionForLetter(opponentGrid, letterFromPlayer).index] = letterFromPlayer;
+        const mirrorIndex = chooseAiPlacement(opponentGrid, letterFromPlayer, aiDifficulty).index;
+        if (mirrorIndex !== -1) opponentGrid[mirrorIndex] = letterFromPlayer;
         updateWinChanceVisualization();
     }
     if (myGrid.filter(x=>x!=="").length >= 25) { 
@@ -3303,9 +3310,10 @@ function handleAiReaction(letterFromPlayer) {
     }
     updateUI("Computer denkt na...", true);
     setTimeout(() => {
-        let aiPick;
-        if (aiDifficulty === 'hard') aiPick = getBestPickAndPositionHeuristic(opponentGrid); 
-        else aiPick = getBestPickAndPositionHeuristic(opponentGrid);
+        // Het niveau bepaalt hier drie dingen: hoe goed de computer plaatst,
+        // of hij vooruitkijkt naar woorden die nog kunnen ontstaan, en of hij
+        // meeweegt dat jij dezelfde letter cadeau krijgt.
+        const aiPick = chooseAiPick(opponentGrid, myGrid, aiDifficulty);
 
         if (aiPick.index === -1) {
             if (!finalTurnProcessed) {

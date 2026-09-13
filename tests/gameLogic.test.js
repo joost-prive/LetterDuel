@@ -1084,3 +1084,214 @@ describe('beurtafwisseling – turn-volgorde invarianten', () => {
         expect(countFilled(state.opponentGrid)).toBe(before + 2);
     });
 });
+
+
+// ---------------------------------------------------------------------------
+// Computertegenstander: niveaus
+// ---------------------------------------------------------------------------
+
+const AI = require('../gameLogic');
+
+function legeGrid() {
+    return Array(25).fill('');
+}
+
+function gridMetStart(letters) {
+    const g = legeGrid();
+    Object.keys(letters).forEach((k) => { g[Number(k)] = letters[k]; });
+    return g;
+}
+
+// Deterministische rng, zodat de tests niet flakey worden.
+function rng(seed) {
+    let v = seed >>> 0;
+    return function () {
+        v += 0x6D2B79F5;
+        let t = v;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+
+// Speelt een volledige partij tussen twee niveaus onder de regels van de
+// echte single-player-flow: wie een letter kiest, geeft hem ook aan de ander.
+function speelPartij(levelA, levelB, seed) {
+    const r = rng(seed);
+    const ga = legeGrid();
+    const gb = legeGrid();
+    [0, 6, 12].forEach((i) => {
+        const L = pickWeightedLetterFromRng(r);
+        ga[i] = L;
+        gb[i] = L;
+    });
+    let guard = 0;
+    while (guard++ < 60 && ga.includes('')) {
+        const pa = AI.chooseAiPick(ga, gb, levelA, r);
+        if (pa.index === -1) break;
+        ga[pa.index] = pa.letter;
+        const jb = AI.chooseAiPlacement(gb, pa.letter, levelB, r).index;
+        if (jb !== -1) gb[jb] = pa.letter;
+        if (!ga.includes('')) break;
+        const pb = AI.chooseAiPick(gb, ga, levelB, r);
+        if (pb.index === -1) break;
+        gb[pb.index] = pb.letter;
+        const ja = AI.chooseAiPlacement(ga, pb.letter, levelA, r).index;
+        if (ja !== -1) ga[ja] = pb.letter;
+    }
+    return { a: calculatePoints(ga), b: calculatePoints(gb) };
+}
+
+describe('AI_PROFILES', () => {
+    test('easy, medium en hard bestaan alle drie', () => {
+        expect(Object.keys(AI.AI_PROFILES).sort()).toEqual(['easy', 'hard', 'medium']);
+    });
+
+    test('alleen hard houdt rekening met de tegenstander', () => {
+        expect(AI.AI_PROFILES.easy.opponentWeight).toBe(0);
+        expect(AI.AI_PROFILES.medium.opponentWeight).toBe(0);
+        expect(AI.AI_PROFILES.hard.opponentWeight).toBeGreaterThan(0);
+    });
+
+    test('hard speelt zonder ruis en is dus deterministisch', () => {
+        expect(AI.AI_PROFILES.hard.randomPlacementChance).toBe(0);
+        expect(AI.AI_PROFILES.hard.topK).toBe(1);
+    });
+
+    test('alleen easy kiest zijn letter niet doordacht', () => {
+        expect(AI.AI_PROFILES.easy.picksLetterSmartly).toBe(false);
+        expect(AI.AI_PROFILES.medium.picksLetterSmartly).toBe(true);
+        expect(AI.AI_PROFILES.hard.picksLetterSmartly).toBe(true);
+    });
+});
+
+describe('evaluatePlacement', () => {
+    test('dScore komt overeen met het verschil in calculatePoints over het hele bord', () => {
+        const g = gridMetStart({ 0: 'K', 1: 'A', 7: 'T', 12: 'E', 18: 'R' });
+        for (const idx of [2, 3, 5, 9, 13, 20, 24]) {
+            for (const letter of ['A', 'S', 'T', 'N']) {
+                const verwacht = (() => {
+                    const sim = [...g];
+                    sim[idx] = letter;
+                    return calculatePoints(sim) - calculatePoints(g);
+                })();
+                expect(AI.evaluatePlacement(g, idx, letter).dScore).toBeCloseTo(verwacht, 9);
+            }
+        }
+    });
+
+    test('een letter die een woord afmaakt levert punten op', () => {
+        const g = legeGrid();
+        g[0] = 'K'; g[1] = 'A';
+        expect(AI.evaluatePlacement(g, 2, 'T').dScore).toBeGreaterThan(0);
+    });
+});
+
+describe('chooseAiPlacement', () => {
+    test.each(['easy', 'medium', 'hard'])('%s legt nooit op een bezet vakje', (level) => {
+        const g = gridMetStart({ 0: 'A', 4: 'B', 12: 'C', 20: 'D' });
+        const r = rng(99);
+        for (let i = 0; i < 60; i++) {
+            const idx = AI.chooseAiPlacement(g, 'E', level, r).index;
+            expect(g[idx]).toBe('');
+        }
+    });
+
+    test('geeft -1 terug als het bord vol is', () => {
+        const vol = Array(25).fill('A');
+        expect(AI.chooseAiPlacement(vol, 'E', 'hard').index).toBe(-1);
+    });
+
+    test('hard geeft bij dezelfde stand altijd dezelfde plek', () => {
+        const g = gridMetStart({ 0: 'W', 6: 'A', 18: 'T' });
+        const eerste = AI.chooseAiPlacement(g, 'E', 'hard').index;
+        for (let i = 0; i < 10; i++) {
+            expect(AI.chooseAiPlacement(g, 'E', 'hard').index).toBe(eerste);
+        }
+    });
+});
+
+describe('chooseAiPick', () => {
+    test.each(['easy', 'medium', 'hard'])('%s kiest een geldige zet', (level) => {
+        const g = gridMetStart({ 0: 'A', 7: 'B' });
+        const r = rng(7);
+        for (let i = 0; i < 30; i++) {
+            const zet = AI.chooseAiPick(g, legeGrid(), level, r);
+            expect(g[zet.index]).toBe('');
+            expect(zet.letter).toMatch(/^[A-Z]$/);
+        }
+    });
+
+    test('hard is deterministisch bij gelijke stand', () => {
+        const g = gridMetStart({ 0: 'W', 6: 'A' });
+        const o = gridMetStart({ 0: 'W', 6: 'A' });
+        const eerste = AI.chooseAiPick(g, o, 'hard');
+        for (let i = 0; i < 5; i++) {
+            expect(AI.chooseAiPick(g, o, 'hard')).toEqual(eerste);
+        }
+    });
+
+    test('werkt ook zonder bord van de tegenstander', () => {
+        const g = gridMetStart({ 0: 'A' });
+        const zet = AI.chooseAiPick(g, null, 'hard');
+        expect(g[zet.index]).toBe('');
+    });
+
+    test('hard en medium spelen aantoonbaar verschillend', () => {
+        // Dit is de regressietest voor de oorspronkelijke bug: daar riepen de
+        // takken voor hard en niet-hard exact dezelfde functie aan, waardoor
+        // de drie niveaus in de praktijk identiek speelden.
+        let verschillen = 0;
+        for (let t = 0; t < 40; t++) {
+            const eigen = legeGrid();
+            const tegen = legeGrid();
+            for (let k = 0; k < 6; k++) {
+                eigen[(t * 7 + k * 3) % 25] = 'AEIONDRST'[(t + k) % 9];
+                tegen[(t * 5 + k * 4) % 25] = 'AEIONDRST'[(t * 2 + k) % 9];
+            }
+            const m = AI.chooseAiPick(eigen, tegen, 'medium');
+            const h = AI.chooseAiPick(eigen, tegen, 'hard');
+            if (m.letter !== h.letter || m.index !== h.index) verschillen++;
+        }
+        expect(verschillen).toBeGreaterThan(5);
+    });
+});
+
+describe('de niveaus vormen een echte ladder', () => {
+    // Zonder deze test kan een niveau ongemerkt terugvallen op het gedrag van
+    // een ander niveau -- precies de bug die hier eerder zat.
+    const partijen = 6;
+
+    test('medium verslaat easy over meerdere partijen', () => {
+        let mediumTotaal = 0;
+        let easyTotaal = 0;
+        for (let i = 0; i < partijen; i++) {
+            const r = speelPartij('easy', 'medium', 1000 + i * 31);
+            easyTotaal += r.a;
+            mediumTotaal += r.b;
+        }
+        expect(mediumTotaal).toBeGreaterThan(easyTotaal);
+    });
+
+    test('hard verslaat medium over meerdere partijen', () => {
+        let hardTotaal = 0;
+        let mediumTotaal = 0;
+        for (let i = 0; i < partijen; i++) {
+            const r = speelPartij('medium', 'hard', 2000 + i * 31);
+            mediumTotaal += r.a;
+            hardTotaal += r.b;
+        }
+        expect(hardTotaal).toBeGreaterThan(mediumTotaal);
+    });
+
+    test('easy scoort duidelijk lager dan hard', () => {
+        let easyTotaal = 0;
+        let hardTotaal = 0;
+        for (let i = 0; i < partijen; i++) {
+            const r = speelPartij('easy', 'hard', 3000 + i * 31);
+            easyTotaal += r.a;
+            hardTotaal += r.b;
+        }
+        expect(hardTotaal).toBeGreaterThan(easyTotaal * 1.3);
+    });
+});
