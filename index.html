@@ -2399,7 +2399,11 @@ async function createFirebaseGame() {
             guestId: null, guestName: "Wachten...",
             turn: "WAITING", status: "waiting",
             p1Grid: p1Grid, p2Grid: p2Grid,
-            pendingLetter: null, lastUpdated: new Date()
+            pendingLetter: null, lastUpdated: new Date(),
+            // Verlaten duels bleven voorheen voorgoed in Firestore staan. Met dit
+            // veld kan in de Firestore-console een TTL-policy op "expiresAt" worden
+            // gezet, die de documenten vanzelf opruimt.
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
         });
         
         currentGameId = docRef.id;
