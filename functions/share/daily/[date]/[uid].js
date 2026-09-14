@@ -21,7 +21,11 @@ function readField(fields, name, fallback = '') {
 
 async function getDailyShareDoc(dateKey, uid) {
   const docId = `${dateKey}_${uid}`;
-  const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/daily_shares/${encodeURIComponent(docId)}?key=${FIREBASE_API_KEY}`;
+  // Veldmasker: het document bevat ook cardPng (tientallen kB base64) en die
+  // hebben we hier niet nodig.
+  const mask = ['dateKey', 'name', 'playerScore', 'aiScore', 'won', 'shareUrl', 'shareRowScores', 'shareColScores']
+    .map((f) => '&mask.fieldPaths=' + f).join('');
+  const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/daily_shares/${encodeURIComponent(docId)}?key=${FIREBASE_API_KEY}${mask}`;
 
   const response = await fetch(url);
   if (!response.ok) return null;
@@ -49,7 +53,7 @@ export async function onRequestGet(context) {
 
   const requestUrl = new URL(request.url);
   const canonicalShareUrl = `${requestUrl.origin}/share/daily/${dateKey}/${uid}`;
-  const ogImageUrl = `${requestUrl.origin}/share/daily/${dateKey}/${uid}/image.svg`;
+  const ogImageUrl = `${requestUrl.origin}/share/daily/${dateKey}/${uid}/image.png`;
   const appUrl = `${requestUrl.origin}/`;
 
   let title = `LetterDuel Daily ${dateKey}`;
@@ -82,6 +86,9 @@ export async function onRequestGet(context) {
   <meta property="og:title" content="${escapeHtml(title)}" />
   <meta property="og:description" content="${escapeHtml(description)}" />
   <meta property="og:image" content="${escapeHtml(ogImageUrl)}" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
   <meta property="og:url" content="${escapeHtml(canonicalShareUrl)}" />
 
   <meta name="twitter:card" content="summary_large_image" />
