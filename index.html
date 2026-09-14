@@ -5,6 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>LetterDuel - Een dagelijks woordspelletje</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="canonical" href="https://letterduel.net/">
+    <meta name="description" content="LetterDuel is een gratis Nederlands woordspel: vul je 5x5-bord met letters en scoor meer woorden dan je tegenstander. Speel de dagelijkse puzzel, neem het op tegen de computer of daag een vriend uit in een online duel.">
+    <meta name="theme-color" content="#6e4626">
+    <meta name="author" content="Joost van de Ven">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="LetterDuel">
+    <meta property="og:locale" content="nl_NL">
+    <meta property="og:url" content="https://letterduel.net/">
+    <meta property="og:title" content="LetterDuel - dagelijks Nederlands woordspel">
+    <meta property="og:description" content="LetterDuel is een gratis Nederlands woordspel: vul je 5x5-bord met letters en scoor meer woorden dan je tegenstander. Speel de dagelijkse puzzel, neem het op tegen de computer of daag een vriend uit in een online duel.">
+    <meta property="og:image" content="https://letterduel.net/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="LetterDuel - Slimste zet, hoogste woord">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="LetterDuel - dagelijks Nederlands woordspel">
+    <meta name="twitter:description" content="LetterDuel is een gratis Nederlands woordspel: vul je 5x5-bord met letters en scoor meer woorden dan je tegenstander. Speel de dagelijkse puzzel, neem het op tegen de computer of daag een vriend uit in een online duel.">
+    <meta name="twitter:image" content="https://letterduel.net/og-image.png">
     
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1478,10 +1498,24 @@ let soloTimerRemaining = 0;
 let soloTimerLastTick = 0;
 let soloTimerActive = false;
 const isDailyAttemptLimitEnabled = true;
-const isDebugMode = ['localhost', '127.0.0.1'].includes(window.location.hostname) || new URLSearchParams(window.location.search).get('debug') === '1';
+const isLocalHost = ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
 
-function isDailyAdminBypassActive() {
-    return String(myUsername || '').trim().toLowerCase() === 'admin123';
+// Debug-hulpmiddelen (autofill) draaien alleen lokaal. De oude schakelaar ?debug=1
+// werkte ook op productie, waardoor elke bezoeker de autofill kon aanzetten.
+const isDebugMode = isLocalHost;
+
+// Ontgrendelt de daily-limiet en de simulatieknop tijdens het testen.
+// Stond eerder op gebruikersnaam 'admin123'; die naam staat in de publieke
+// broncode en was dus door iedereen na te typen. Nu een localStorage-vlag:
+//   localStorage.setItem('ld_dev_unlock', '1')
+// Let op: resultaten uit deze modus worden bewust NIET opgeslagen, zodat de
+// dagranglijst ook schoon blijft als iemand de vlag alsnog vindt.
+function isDevUnlockActive() {
+    try {
+        return localStorage.getItem('ld_dev_unlock') === '1';
+    } catch (e) {
+        return false;
+    }
 }
 
 // Username Handling
@@ -2233,7 +2267,7 @@ async function startDailyMode() {
 
             const uid = window.currentUser.uid;
             const dateKey = getUtcDateKey();
-            const enforceDailyLimit = isDailyAttemptLimitEnabled && !isDailyAdminBypassActive();
+            const enforceDailyLimit = isDailyAttemptLimitEnabled && !isDevUnlockActive();
 
             try {
                 if (enforceDailyLimit) {
@@ -2365,7 +2399,11 @@ async function createFirebaseGame() {
             guestId: null, guestName: "Wachten...",
             turn: "WAITING", status: "waiting",
             p1Grid: p1Grid, p2Grid: p2Grid,
-            pendingLetter: null, lastUpdated: new Date()
+            pendingLetter: null, lastUpdated: new Date(),
+            // Verlaten duels bleven voorheen voorgoed in Firestore staan. Met dit
+            // veld kan in de Firestore-console een TTL-policy op "expiresAt" worden
+            // gezet, die de documenten vanzelf opruimt.
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
         });
         
         currentGameId = docRef.id;
@@ -2440,7 +2478,7 @@ function updateSimulationButton() {
     const simBtn = document.getElementById('simulate-btn');
     if (!simBtn) return;
 
-    if (!isDailyAdminBypassActive()) {
+    if (!isDevUnlockActive()) {
         simBtn.style.display = 'none';
         return;
     }
@@ -2599,7 +2637,7 @@ function toggleOnlineSimulation() {
 }
 
 function toggleSimulation() {
-    if (!isDailyAdminBypassActive()) {
+    if (!isDevUnlockActive()) {
         showFlashMessage('SIMULATIE', 'Alleen beschikbaar voor admin123', 2200);
         return;
     }
@@ -3173,7 +3211,11 @@ function handleKey(letter) {
         activeCellIndex = null;
         updateUI();
 
-        const aiEmptyIndex = getBestPositionForLetter(opponentGrid, letter).index;
+        // In de daily speelt de computer altijd op 'hard', zodat de puzzel voor
+        // iedereen dezelfde tegenstander heeft. In de losse modus telt het
+        // gekozen niveau.
+        const aiLevel = gameMode === 'daily' ? 'hard' : aiDifficulty;
+        const aiEmptyIndex = chooseAiPlacement(opponentGrid, letter, aiLevel).index;
         if(aiEmptyIndex !== -1) opponentGrid[aiEmptyIndex] = letter;
 
         if (gameMode !== 'daily') updateWinChanceVisualization();
@@ -3229,7 +3271,9 @@ function handleDailyAiReaction() {
         const nextLetter = currentDailyPuzzle.aiSequence[dailyAiSequenceIndex];
         dailyAiSequenceIndex += 1;
 
-        const aiPlacement = getBestPositionForLetter(opponentGrid, nextLetter).index;
+        // 'hard' is deterministisch (geen ruis), dus de daily blijft voor
+        // iedereen exact dezelfde puzzel.
+        const aiPlacement = chooseAiPlacement(opponentGrid, nextLetter, 'hard').index;
         if (aiPlacement !== -1) {
             opponentGrid[aiPlacement] = nextLetter;
             pendingLetter = nextLetter;
@@ -3255,7 +3299,8 @@ function performMoveSinglePlayer(index, letter) { myGrid[index] = letter; render
 
 function handleAiReaction(letterFromPlayer) {
     if (letterFromPlayer) {
-        opponentGrid[getBestPositionForLetter(opponentGrid, letterFromPlayer).index] = letterFromPlayer;
+        const mirrorIndex = chooseAiPlacement(opponentGrid, letterFromPlayer, aiDifficulty).index;
+        if (mirrorIndex !== -1) opponentGrid[mirrorIndex] = letterFromPlayer;
         updateWinChanceVisualization();
     }
     if (myGrid.filter(x=>x!=="").length >= 25) { 
@@ -3269,9 +3314,10 @@ function handleAiReaction(letterFromPlayer) {
     }
     updateUI("Computer denkt na...", true);
     setTimeout(() => {
-        let aiPick;
-        if (aiDifficulty === 'hard') aiPick = getBestPickAndPositionHeuristic(opponentGrid); 
-        else aiPick = getBestPickAndPositionHeuristic(opponentGrid);
+        // Het niveau bepaalt hier drie dingen: hoe goed de computer plaatst,
+        // of hij vooruitkijkt naar woorden die nog kunnen ontstaan, en of hij
+        // meeweegt dat jij dezelfde letter cadeau krijgt.
+        const aiPick = chooseAiPick(opponentGrid, myGrid, aiDifficulty);
 
         if (aiPick.index === -1) {
             if (!finalTurnProcessed) {
@@ -3493,7 +3539,8 @@ async function saveDailyResult(myScore, oppScore) {
     if (dailyGameFinished) return;
 
     const { doc, runTransaction } = window.firebaseFuncs;
-    const enforceDailyLimit = isDailyAttemptLimitEnabled && !isDailyAdminBypassActive();
+    const devUnlock = isDevUnlockActive();
+    const enforceDailyLimit = isDailyAttemptLimitEnabled && !devUnlock;
     const uid = window.currentUser.uid;
     const resultRef = doc(window.db, 'daily_results', currentDailyDateKey, 'entries', uid);
     const shareDocRef = doc(window.db, 'daily_shares', `${currentDailyDateKey}_${uid}`);
@@ -3518,6 +3565,15 @@ async function saveDailyResult(myScore, oppScore) {
         shareRowScores: shareSnapshot.serializedRowScores,
         shareColScores: shareSnapshot.serializedColScores
     };
+
+    // Dev-modus mag de daily herspelen, maar de uitslag telt niet mee: zonder deze
+    // guard kan een herspeelde puzzel de dagranglijst vervuilen.
+    if (devUnlock) {
+        dailyGameFinished = true;
+        lastDailyResultPayload = payload;
+        showFlashMessage('Dev-modus', 'Score niet opgeslagen', 2200);
+        return;
+    }
 
     if (enforceDailyLimit) {
         await runTransaction(window.db, async (transaction) => {

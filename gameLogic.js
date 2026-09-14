@@ -188,36 +188,38 @@
 
     // --- POTENTIAL CALCULATION ---
 
+    const GAP_PENALTY = 12;
+    const POINTS = { 5: 15, 4: 10, 3: 5 };
+
+    function analyzeSegment(segment) {
+        const len = segment.length;
+        const holes = segment.filter(c => c === "").length;
+        if (holes === 0 || holes === len) return 0;
+        let patternStr = "^";
+        segment.forEach(c => patternStr += (c === "" ? "." : c));
+        patternStr += "$";
+        const regex = new RegExp(patternStr);
+        const candidates = wordsByLength[len] || [];
+        let matchCount = 0;
+        for (let w of candidates) { if (regex.test(w)) matchCount++; }
+        if (matchCount === 0) return 0;
+        return (matchCount / Math.pow(GAP_PENALTY, holes)) * POINTS[len];
+    }
+
+    // Somscore van alle 6 de segmenten (1x5, 2x4, 3x3) binnen een regel.
+    function scanLine(lineArr) {
+        let lineScore = 0;
+        lineScore += analyzeSegment(lineArr);
+        lineScore += analyzeSegment(lineArr.slice(0, 4));
+        lineScore += analyzeSegment(lineArr.slice(1, 5));
+        lineScore += analyzeSegment(lineArr.slice(0, 3));
+        lineScore += analyzeSegment(lineArr.slice(1, 4));
+        lineScore += analyzeSegment(lineArr.slice(2, 5));
+        return lineScore;
+    }
+
     function calculateDetailedPotential(grid) {
         let totalPotential = 0;
-        const GAP_PENALTY = 12;
-        const POINTS = { 5: 15, 4: 10, 3: 5 };
-
-        const analyzeSegment = (segment) => {
-            const len = segment.length;
-            const holes = segment.filter(c => c === "").length;
-            if (holes === 0 || holes === len) return 0;
-            let patternStr = "^";
-            segment.forEach(c => patternStr += (c === "" ? "." : c));
-            patternStr += "$";
-            const regex = new RegExp(patternStr);
-            const candidates = wordsByLength[len] || [];
-            let matchCount = 0;
-            for (let w of candidates) { if (regex.test(w)) matchCount++; }
-            if (matchCount === 0) return 0;
-            return (matchCount / Math.pow(GAP_PENALTY, holes)) * POINTS[len];
-        };
-
-        const scanLine = (lineArr) => {
-            let lineScore = 0;
-            lineScore += analyzeSegment(lineArr);
-            lineScore += analyzeSegment(lineArr.slice(0, 4));
-            lineScore += analyzeSegment(lineArr.slice(1, 5));
-            lineScore += analyzeSegment(lineArr.slice(0, 3));
-            lineScore += analyzeSegment(lineArr.slice(1, 4));
-            lineScore += analyzeSegment(lineArr.slice(2, 5));
-            return lineScore;
-        };
 
         for (let r = 0; r < 5; r++) {
             let row = [];
@@ -282,6 +284,207 @@
             if (score > maxScore) { maxScore = score; bestIdx = idx; }
         }
         return { index: bestIdx };
+    }
+
+    // --- SNELLE ZET-EVALUATIE ---------------------------------------------
+    //
+    // Een zet raakt alleen de rij en de kolom van de gewijzigde cel; de andere
+    // acht regels veranderen niet en hoeven dus niet opnieuw doorgerekend te
+    // worden. Samen met een cache op regelniveau scheelt dat ruim een factor 40
+    // ten opzichte van telkens het hele bord evalueren. Die winst is nodig:
+    // zonder die snelheid kan de AI niet ook nog naar het bord van de
+    // tegenstander kijken.
+
+    const LINE_CACHE_LIMIT = 120000;
+    const lineCache = new Map();
+
+    function lineStats(line) {
+        let key = "";
+        for (let i = 0; i < 5; i++) key += line[i] || ".";
+        const cached = lineCache.get(key);
+        if (cached) return cached;
+        const stats = {
+            score: getLineScore(key.split(".").join(" ")),
+            potential: scanLine(line)
+        };
+        if (lineCache.size >= LINE_CACHE_LIMIT) lineCache.clear();
+        lineCache.set(key, stats);
+        return stats;
+    }
+
+    function rowOf(grid, r) {
+        return [grid[r * 5], grid[r * 5 + 1], grid[r * 5 + 2], grid[r * 5 + 3], grid[r * 5 + 4]];
+    }
+
+    function colOf(grid, c) {
+        return [grid[c], grid[c + 5], grid[c + 10], grid[c + 15], grid[c + 20]];
+    }
+
+    function emptyCells(grid) {
+        const out = [];
+        for (let i = 0; i < 25; i++) if (grid[i] === "") out.push(i);
+        return out;
+    }
+
+    /**
+     * Wat verandert er als "letter" op "idx" wordt gelegd?
+     * dScore     = verandering in punten die nu al vaststaan
+     * dPotential = verandering in woorden die nog kunnen ontstaan
+     */
+    function evaluatePlacement(grid, idx, letter) {
+        const r = Math.floor(idx / 5);
+        const c = idx % 5;
+        const row = rowOf(grid, r);
+        const col = colOf(grid, c);
+        const rowBefore = lineStats(row);
+        const colBefore = lineStats(col);
+        row[c] = letter;
+        col[r] = letter;
+        const rowAfter = lineStats(row);
+        const colAfter = lineStats(col);
+        return {
+            dScore: (rowAfter.score - rowBefore.score) + (colAfter.score - colBefore.score),
+            dPotential: (rowAfter.potential - rowBefore.potential) + (colAfter.potential - colBefore.potential)
+        };
+    }
+
+    // --- COMPUTERTEGENSTANDER ---------------------------------------------
+    //
+    // De niveaus verschillen op vier punten, niet alleen op "hoe vaak doet hij
+    // iets doms":
+    //
+    //   plaatsing      hoe goed legt hij een letter neer
+    //   vooruitkijken  telt hij alleen wat er al staat, of ook wat nog kan ontstaan
+    //   letterkeuze    kiest hij de letter die hemzelf het meest oplevert
+    //   afgunst        houdt hij er rekening mee dat de tegenstander diezelfde
+    //                  letter krijgt -- dat is de kern van dit spel: elke letter
+    //                  die je kiest, krijgt je tegenstander er gratis bij
+    //
+    // easy    legt letters neer zonder vooruit te kijken en noemt een
+    //         willekeurige veelvoorkomende letter
+    // medium  bouwt naar woorden toe en kiest de letter die hemzelf helpt
+    // hard    doet dat ook, maar trekt af wat die letter de tegenstander
+    //         oplevert, en speelt het eindspel scherper
+
+    const AI_PROFILES = {
+        easy: {
+            potentialWeight: 0.1,
+            opponentWeight: 0,
+            randomPlacementChance: 0.15,
+            topK: 2,
+            picksLetterSmartly: false,
+            candidates: "ENATIRSLGDOKBMPUV"
+        },
+        medium: {
+            potentialWeight: 0.2,
+            opponentWeight: 0,
+            randomPlacementChance: 0.08,
+            topK: 2,
+            picksLetterSmartly: true,
+            candidates: "ENATIRSLGDOKBMPUV"
+        },
+        hard: {
+            potentialWeight: 0.2,
+            opponentWeight: 0.25,
+            randomPlacementChance: 0,
+            topK: 1,
+            picksLetterSmartly: true,
+            candidates: "ENATIRSLGDOKBMPUVWFHJ"
+        }
+    };
+
+    function getAiProfile(level) {
+        return AI_PROFILES[level] || AI_PROFILES.medium;
+    }
+
+    // Naarmate het bord voller wordt telt wat er al staat zwaarder dan wat er
+    // nog zou kunnen komen: bij de laatste zetten is potentie niets meer waard.
+    function potentialWeightFor(profile, grid) {
+        const filled = 25 - emptyCells(grid).length;
+        return profile.potentialWeight * (1 - filled / 25);
+    }
+
+    function rankPlacements(grid, letter, potentialWeight) {
+        const empty = emptyCells(grid);
+        const scored = [];
+        for (const idx of empty) {
+            const ev = evaluatePlacement(grid, idx, letter);
+            scored.push({ index: idx, value: ev.dScore + ev.dPotential * potentialWeight });
+        }
+        // sort is stabiel, dus bij gelijke waarde wint de laagste index.
+        scored.sort((a, b) => b.value - a.value);
+        return scored;
+    }
+
+    /**
+     * Waar legt de computer een letter neer die hij gekregen heeft?
+     */
+    function chooseAiPlacement(grid, letter, level, rng) {
+        const profile = getAiProfile(level);
+        const random = typeof rng === "function" ? rng : Math.random;
+        const empty = emptyCells(grid);
+        if (empty.length === 0) return { index: -1 };
+
+        if (profile.randomPlacementChance > 0 && random() < profile.randomPlacementChance) {
+            return { index: empty[Math.floor(random() * empty.length)] };
+        }
+
+        const scored = rankPlacements(grid, letter, potentialWeightFor(profile, grid));
+        const k = Math.min(profile.topK, scored.length);
+        return { index: scored[k === 1 ? 0 : Math.floor(random() * k)].index };
+    }
+
+    /**
+     * Welke letter kiest de computer, en waar legt hij hem?
+     * opponentGrid mag ontbreken; dan kan hij niet op afgunst spelen.
+     */
+    function chooseAiPick(grid, opponentGrid, level, rng) {
+        const profile = getAiProfile(level);
+        const random = typeof rng === "function" ? rng : Math.random;
+        const empty = emptyCells(grid);
+        if (empty.length === 0) return { index: -1, letter: "E" };
+
+        if (!profile.picksLetterSmartly) {
+            const letter = pickWeightedLetterFromRng(random);
+            return { index: chooseAiPlacement(grid, letter, level, random).index, letter };
+        }
+
+        const potentialWeight = potentialWeightFor(profile, grid);
+        const oppEmpty = opponentGrid ? emptyCells(opponentGrid) : [];
+        const oppPotentialWeight = opponentGrid
+            ? profile.potentialWeight * (1 - (25 - oppEmpty.length) / 25)
+            : 0;
+
+        const scored = [];
+        for (const letter of profile.candidates) {
+            const ownRanked = rankPlacements(grid, letter, potentialWeight);
+            if (ownRanked.length === 0) continue;
+            const own = ownRanked[0];
+
+            // Dezelfde letter komt ook op het bord van de tegenstander terecht.
+            let opponentGain = 0;
+            if (profile.opponentWeight > 0 && oppEmpty.length > 0) {
+                let best = -Infinity;
+                for (const idx of oppEmpty) {
+                    const ev = evaluatePlacement(opponentGrid, idx, letter);
+                    const v = ev.dScore + ev.dPotential * oppPotentialWeight;
+                    if (v > best) best = v;
+                }
+                opponentGain = best;
+            }
+
+            scored.push({
+                letter,
+                index: own.index,
+                value: own.value - opponentGain * profile.opponentWeight
+            });
+        }
+
+        if (scored.length === 0) return { index: empty[0], letter: "E" };
+        scored.sort((a, b) => b.value - a.value);
+        const k = Math.min(profile.topK, scored.length);
+        const chosen = scored[k === 1 ? 0 : Math.floor(random() * k)];
+        return { index: chosen.index, letter: chosen.letter };
     }
 
     // --- GRID SETUP UTILITIES ---
@@ -498,6 +701,11 @@
         calculateWinProbabilityValue,
         getBestPickAndPositionHeuristic,
         getBestPositionForLetter,
+        AI_PROFILES,
+        evaluatePlacement,
+        rankPlacements,
+        chooseAiPick,
+        chooseAiPlacement,
         getUniqueRowColStartPositions,
         getWeightedLetter,
         isGridFull,

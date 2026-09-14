@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# De /share/-pagina's zijn bewust crawlbaar: Facebook, WhatsApp en X halen daar
+# de preview-tags op. Ze dragen zelf een noindex-tag, zodat ze niet in de
+# zoekresultaten belanden.
+
+Sitemap: https://letterduel.net/sitemap.xml

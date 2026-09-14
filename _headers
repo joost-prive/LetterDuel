@@ -1,0 +1,19 @@
+/*
+  X-Frame-Options: SAMEORIGIN
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=()
+
+# Spelbestanden hebben geen versie in de naam, dus kort cachen:
+# een deploy moet binnen een uur doorkomen.
+/words.js
+  Cache-Control: public, max-age=3600
+
+/gameLogic.js
+  Cache-Control: public, max-age=3600
+
+/favicon.svg
+  Cache-Control: public, max-age=604800
+
+/og-image.png
+  Cache-Control: public, max-age=604800
