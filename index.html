@@ -3575,6 +3575,23 @@ async function saveDailyResult(myScore, oppScore) {
         return;
     }
 
+    // De previewafbeelding voor sociale media: een echte PNG, omdat Facebook,
+    // WhatsApp en X geen SVG tonen. Mislukt dit, dan valt de deelpagina terug
+    // op de algemene og-image.png.
+    let cardPng = '';
+    try {
+        cardPng = createDailyOgCardBase64(payload);
+        // Een Firestore-document mag maximaal 1 MiB zijn. Liever geen
+        // previewafbeelding dan een mislukte schrijfactie waarbij de score
+        // van de speler verloren gaat.
+        if (cardPng.length > 700000) {
+            console.log('og-kaart te groot, wordt overgeslagen:', cardPng.length);
+            cardPng = '';
+        }
+    } catch (e) {
+        console.log('og-kaart renderen mislukt', e);
+    }
+
     if (enforceDailyLimit) {
         await runTransaction(window.db, async (transaction) => {
             const existing = await transaction.get(resultRef);
@@ -3596,6 +3613,7 @@ async function saveDailyResult(myScore, oppScore) {
                 shareGridColors: shareSnapshot.serializedColorCodes,
                 shareRowScores: shareSnapshot.serializedRowScores,
                 shareColScores: shareSnapshot.serializedColScores,
+                cardPng,
                 updatedAt: new Date()
             });
         });
@@ -3616,6 +3634,7 @@ async function saveDailyResult(myScore, oppScore) {
             shareGridColors: shareSnapshot.serializedColorCodes,
             shareRowScores: shareSnapshot.serializedRowScores,
             shareColScores: shareSnapshot.serializedColScores,
+            cardPng,
             updatedAt: new Date()
         });
     }
@@ -3962,6 +3981,154 @@ function renderDailyShareGridCanvas(sourcePayload = null) {
     }
 
     return canvas;
+}
+
+// --- OG-KAART VOOR GEDEELDE DAILY-RESULTATEN ---------------------------
+//
+// Facebook, WhatsApp en X tonen geen SVG als preview-afbeelding. Daarom
+// rendert de browser hier bij het opslaan een echte PNG van 1200x630, die
+// bij het resultaat in Firestore wordt bewaard. De Pages Function
+// /share/daily/<datum>/<uid>/image.png geeft die bytes terug.
+//
+// Bewust met kleuren in plaats van letters: de preview mag de oplossing van
+// de dag niet verklappen aan wie hem nog moet spelen.
+
+const OG_CARD_COLORS = {
+    H: '#5c7548',  // woord in de rij
+    V: '#4a6d8c',  // woord in de kolom
+    B: '#c89b3c',  // allebei
+    N: '#2a1810'   // geen woord
+};
+
+function renderDailyOgCardCanvas(payload) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200;
+    canvas.height = 630;
+    const ctx = canvas.getContext('2d');
+
+    // Houten ondergrond met nerf
+    const bg = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    bg.addColorStop(0, '#6e4626');
+    bg.addColorStop(1, '#2a1810');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'rgba(0,0,0,0.06)';
+    for (let i = 0; i < canvas.width; i += 4) ctx.fillRect(i, 0, 1, canvas.height);
+
+    // Perkamenten paneel met dubbele rand
+    drawRoundedRect(ctx, 40, 40, 1120, 550, 24);
+    ctx.fillStyle = '#fbf4e2';
+    ctx.fill();
+    ctx.strokeStyle = '#3b2618';
+    ctx.lineWidth = 4;
+    drawRoundedRect(ctx, 42, 42, 1116, 546, 22);
+    ctx.stroke();
+    ctx.strokeStyle = '#c89b3c';
+    ctx.lineWidth = 3;
+    drawRoundedRect(ctx, 54, 54, 1092, 522, 16);
+    ctx.stroke();
+
+    const dateKey = payload?.dateKey || getUtcDateKey();
+    const dailyNumber = getDailySequenceNumber(dateKey);
+    const playerScore = Number(payload?.playerScore) || 0;
+    const aiScore = Number(payload?.aiScore) || 0;
+    const won = payload?.won === true;
+    const naam = String(payload?.name || 'Speler').slice(0, 24);
+
+    // --- Tekstkolom links ---
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+
+    ctx.fillStyle = '#3b2618';
+    ctx.font = "800 62px 'Playfair Display', Georgia, serif";
+    ctx.fillText('LETTERDUEL', 96, 180);
+
+    ctx.fillStyle = '#7a5b3a';
+    ctx.font = "600 30px 'Fraunces', Georgia, serif";
+    ctx.fillText(dailyNumber ? ('Daily #' + dailyNumber + '  \u00b7  ' + dateKey) : ('Daily  \u00b7  ' + dateKey), 98, 228);
+
+    ctx.fillStyle = '#c89b3c';
+    ctx.fillRect(98, 258, 160, 3);
+
+    ctx.fillStyle = '#2d1f15';
+    ctx.font = "800 54px 'Fraunces', Georgia, serif";
+    ctx.fillText('JIJ ' + playerScore + '   \u2014   AI ' + aiScore, 96, 340);
+
+    ctx.fillStyle = won ? '#5c7548' : '#a13a2a';
+    ctx.font = "800 46px 'Playfair Display', Georgia, serif";
+    ctx.fillText(won ? 'GEWONNEN' : 'VERLOREN', 96, 410);
+
+    ctx.fillStyle = '#7a5b3a';
+    ctx.font = "600 26px 'Fraunces', Georgia, serif";
+    ctx.fillText(naam + '  \u00b7  letterduel.net', 98, 470);
+
+    // --- Raster rechts, alleen kleuren ---
+    const codes = String(payload?.shareGridColors || '').toUpperCase();
+    const gridColors = codes.length === 25 ? codes.split('') : Array(25).fill('N');
+    const rowScores = String(payload?.shareRowScores || '').split(',').map(Number);
+    const colScores = String(payload?.shareColScores || '').split(',').map(Number);
+
+    const cell = 74;
+    const scoreSize = 50;
+    const gap = 6;
+    const gridPx = cell * 5;
+    const blockW = gridPx + gap + scoreSize;
+    const gx = 1200 - 96 - blockW;
+    const gy = Math.round((630 - (gridPx + gap + scoreSize)) / 2);
+
+    // Houten lijst om het raster
+    drawRoundedRect(ctx, gx - 14, gy - 14, blockW + 28, blockW + 28, 14);
+    ctx.fillStyle = '#6e4626';
+    ctx.fill();
+    ctx.strokeStyle = '#3b2618';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    for (let r = 0; r < 5; r++) {
+        for (let c = 0; c < 5; c++) {
+            const code = gridColors[(r * 5) + c];
+            ctx.fillStyle = OG_CARD_COLORS[code] || OG_CARD_COLORS.N;
+            drawRoundedRect(ctx, gx + (c * cell) + 3, gy + (r * cell) + 3, cell - 6, cell - 6, 8);
+            ctx.fill();
+        }
+    }
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = "800 28px 'Fraunces', Georgia, serif";
+
+    for (let r = 0; r < 5; r++) {
+        const sx = gx + gridPx + gap;
+        const sy = gy + (r * cell) + 3;
+        ctx.fillStyle = '#2a1810';
+        drawRoundedRect(ctx, sx, sy, scoreSize, cell - 6, 8);
+        ctx.fill();
+        ctx.fillStyle = '#c89b3c';
+        const v = Number.isFinite(rowScores[r]) && rowScores[r] > 0 ? String(rowScores[r]) : '-';
+        ctx.fillText(v, sx + (scoreSize / 2), sy + ((cell - 6) / 2) + 1);
+    }
+
+    for (let c = 0; c < 5; c++) {
+        const sx = gx + (c * cell) + 3;
+        const sy = gy + gridPx + gap;
+        ctx.fillStyle = '#2a1810';
+        drawRoundedRect(ctx, sx, sy, cell - 6, scoreSize, 8);
+        ctx.fill();
+        ctx.fillStyle = '#c89b3c';
+        const v = Number.isFinite(colScores[c]) && colScores[c] > 0 ? String(colScores[c]) : '-';
+        ctx.fillText(v, sx + ((cell - 6) / 2), sy + (scoreSize / 2) + 1);
+    }
+
+    return canvas;
+}
+
+// Geeft de kaart terug als kale base64 (zonder data:-voorvoegsel), klaar om
+// in Firestore te bewaren.
+function createDailyOgCardBase64(payload) {
+    const canvas = renderDailyOgCardCanvas(payload);
+    const dataUrl = canvas.toDataURL('image/png');
+    const komma = dataUrl.indexOf(',');
+    return komma === -1 ? '' : dataUrl.slice(komma + 1);
 }
 
 function renderDailyResultCardCanvas(sourcePayload = null) {
